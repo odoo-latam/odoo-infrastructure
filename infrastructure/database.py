@@ -605,6 +605,7 @@ class database(models.Model):
     @api.one
     def backup_now(self, backup_policy_id=False):
         """"""
+        self.server_id.get_env()
         now = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         if not backup_policy_id:
