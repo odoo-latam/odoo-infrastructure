@@ -8,6 +8,7 @@ from fabric.contrib.files import exists, append, sed
 from ast import literal_eval
 import os
 import re
+import traceback
 
 
 class instance(models.Model):
@@ -479,6 +480,7 @@ class instance(models.Model):
 
     @api.multi
     def update_service_file(self):
+        self.environment_id.server_id.get_env()
         # Build file
         daemon = os.path.join(
             self.environment_id.path, 'bin', self.run_server_command)
