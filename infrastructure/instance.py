@@ -475,7 +475,7 @@ class instance(models.Model):
                 sudo(command, user=self.user)
         except:
             raise except_orm(_('Error creating configuration file!'),
-            _("Try stopping the instance and then try again."))
+            _("Try stopping the instance and then try again.\n" + command))
         sed(self.conf_file_path, '(admin_passwd).*', 'admin_passwd = ' + self.admin_pass, use_sudo=True)
 
     @api.multi
