@@ -654,7 +654,7 @@ class database(models.Model):
             if policy_name == 'manual':
                 raise except_orm(
                     _("Unable to backup '%s' database") % self.name,
-                    _('Command output: %s') % e
+                    _('Command %s output: %s') % (cmd, e)
                 )
             else:
                 self.message_post(
