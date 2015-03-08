@@ -583,7 +583,7 @@ class instance(models.Model):
         
         for host in self.instance_host_ids:
             if host.database_id:
-                nginx_site_file += nginx_site_template % (
+                nginx_site_file += nginx_site_dbfilter_template % (
                     listen_port, 
                     host.name, 
                     acces_log + '_' + host.database_id.name,
@@ -595,7 +595,7 @@ class instance(models.Model):
             else:
                 server_names += host.name + ' '
 
-        if server_names == '':
+        if server_names == '' and nginx_site_file == '':
             raise Warning(_('You Must set at least one instance host!'))
 
         nginx_site_file += nginx_site_template % (
