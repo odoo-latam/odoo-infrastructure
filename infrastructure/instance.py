@@ -564,9 +564,6 @@ class instance(models.Model):
         server_names = ''
         nginx_site_file = ''
         
-        if server_names == '':
-            raise Warning(_('You Must set at least one instance host!'))
-
         acces_log = os.path.join(
             self.environment_id.server_id.nginx_log_path,
             'access_' + re.sub('[-]', '_', self.service_file))
