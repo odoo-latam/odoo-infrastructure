@@ -562,9 +562,8 @@ class instance(models.Model):
             raise Warning(_('Secure instances not implemented yet!'))
 
         server_names = ''
-        for host in self.instance_host_ids:
-            server_names += host.name + ' '
-
+        nginx_site_file = ''
+        
         if server_names == '':
             raise Warning(_('You Must set at least one instance host!'))
 
@@ -581,8 +580,25 @@ class instance(models.Model):
         if self.longpolling_port:
             nginx_long_polling = nginx_long_polling_template % (
                 self.longpolling_port)
+        
+        for host in self.instance_host_ids:
+            if host.database_id:
+                nginx_site_file += nginx_site_template % (
+                    listen_port, 
+                    host.name, 
+                    acces_log + '_' + host.database_id.name,
+                    error_log + '_' + host.database_id.name,
+                    xmlrpc_port,
+                    host.database_id.name,
+                    nginx_long_polling)
 
-        nginx_site_file = nginx_site_template % (
+            else:
+                server_names += host.name + ' '
+
+        if server_names == '':
+            raise Warning(_('You Must set at least one instance host!'))
+
+        nginx_site_file += nginx_site_template % (
             listen_port, server_names,
             acces_log,
             error_log,
@@ -629,6 +645,25 @@ server {
         location / {
                 proxy_pass              http://127.0.0.1:%i;
                 proxy_set_header        X-Forwarded-Host $host;
+        }
+
+    %s
+
+}
+"""
+
+nginx_site_dbfilter_template = """
+server {
+        listen %i;
+        server_name %s;
+        access_log %s;
+        error_log %s;
+
+        location / {
+                proxy_pass              http://127.0.0.1:%i;
+                proxy_set_header        X-Forwarded-Host $host;
+                proxy_set_header        X-OpenERP-dbfilter "%s";
+                
         }
 
     %s

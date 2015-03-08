@@ -54,6 +54,12 @@ class instance_host(models.Model):
         related='server_hostname_id.wildcard'
     )
 
+    database_id = fields.Many2one(
+        'infrastructure.database',
+        string='Database',
+        domain=[('instance_id','=',instance_id)]
+    )
+    
     _sql_constraints = [
         ('name_uniq', 'unique(name, server_id)',
             'Name must be unique per server!'),
