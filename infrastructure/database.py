@@ -311,8 +311,8 @@ class database(models.Model):
     _sql_constraints = [
         ('name_uniq', 'unique(name, server_id)',
             'Database Name Must be Unique per server'),
-        ('domain_alias_uniq', 'unique(domain_alias)',
-            'Domain Alias Must be Unique'),
+        #('domain_alias_uniq', 'unique(domain_alias)',
+        #    'Domain Alias Must be Unique'),
     ]
 
     @api.one

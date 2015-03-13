@@ -19,7 +19,7 @@ class database_backup(models.Model):
     date = fields.Datetime(
         string='Date',
         readonly=True,
-        required=True
+        #required=True
     )
     name = fields.Char(
         string='Name',
