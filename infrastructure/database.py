@@ -78,7 +78,7 @@ class database(models.Model):
     partner_id = fields.Many2one(
         'res.partner',
         string='Partner',
-        required=True,
+        #required=True,
     )
     demo_data = fields.Boolean(
         string='Demo Data?',

@@ -29,12 +29,12 @@ class database_backup(models.Model):
     path = fields.Char(
         string='Path',
         readonly=True,
-        required=True
+        #required=True
     )
     type = fields.Selection(
         [('daily', 'Daily'), ('weekly', 'Weekly'), ('monthly', 'Monthly')],
         string='Type',
-        required=True
+        #required=True
     )
 
     @api.one
