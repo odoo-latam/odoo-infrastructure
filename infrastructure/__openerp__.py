@@ -28,6 +28,7 @@
         u'view/environment_repository_view.xml',
         u'view/database_module_view.xml',
         u'view/database_view.xml',
+        u'view/db_backup_policy_view.xml',
         u'view/db_filter_view.xml',
         u'view/instance_view.xml',
         u'view/service_command_view.xml',
