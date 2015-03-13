@@ -11,14 +11,14 @@ from fabric.contrib.files import exists, append, sed
 from ast import literal_eval
 import os
 import re
-<<<<<<< HEAD
+
 import traceback
-=======
+
 from fabric.api import settings, env
 import logging
 import fabtools
 _logger = logging.getLogger(__name__)
->>>>>>> refs/remotes/upstream/8.0
+
 
 
 class instance(models.Model):
