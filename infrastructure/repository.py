@@ -3,7 +3,9 @@
 from openerp import models, fields, api, _
 from openerp.exceptions import except_orm
 import os
-from fabric.api import cd, sudo
+from fabric.api import cd
+# utilizamos nuestro custom sudo que da un warning
+from .server import custom_sudo as sudo
 from fabric.contrib.files import exists
 
 
@@ -49,6 +51,12 @@ class repository(models.Model):
 
     is_server = fields.Boolean(
         string='Is Server?'
+    )
+
+    default_in_new_env = fields.Boolean(
+        string='Default in new Environment?',
+        help="Not implemented yet",
+        readonly=True,
     )
 
     install_server_command = fields.Char(

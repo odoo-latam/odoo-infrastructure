@@ -8,17 +8,18 @@
     <field name="name">infrastructure.environment.select</field>
     <field name="model">infrastructure.environment</field>
     <field name="arch" type="xml">
-        <search string="environment" version="7.0">
-            <group string="By Attribute">
-                <field name="number" string="Number"/>
-                <field name="name" string="Name"/>
-                <field name="type" string="Type"/>
-                <field name="description" string="Description"/>
-                <field name="partner_id" string="Partner"/>
-                <field name="environment_version_id" string="Version"/>
-            </group>
-            <group string="By object">
-                <field name="server_id" string="Server"/>
+        <search string="environment">
+            <field name="number"/>
+            <field name="name"/>
+            <field name="type"/>
+            <field name="description"/>
+            <field name="partner_id"/>
+            <field name="environment_version_id"/>
+            <field name="server_id"/>
+            <group expand="0" string="Group By...">
+                <filter string="Partner" context="{'group_by':'partner_id'}"/>
+                <filter string="Environment Version" context="{'group_by':'environment_version_id'}"/>
+                <filter string="Server" context="{'group_by':'server_id'}"/>
             </group>
         </search>
     </field>
@@ -29,13 +30,12 @@
     <field name="name">infrastructure.environment.form</field>
     <field name="model">infrastructure.environment</field>
     <field name="arch" type="xml">
-        <form string="environment" version="7.0">
+        <form string="environment">
             <field name="id" invisible="1"/>
             <header>
                 <button name="sgn_to_active"
                     states="draft"
                     string="to Active"
-                    class="oe_highlight"
                     />
                 <button name="action_wfk_set_draft"
                     type="object"
@@ -51,42 +51,46 @@
                     />
             </header>
             <sheet string="environment">
-                <field name="server_id" invisible="1"/>
+                <field name="sever_copied" invisible="1"/>
                 <div class="col-md-6">
+                    <h2 class="oe_inline">
+                        <field name="server_id" class="oe_inline"/>
+                    </h2>
                     <h1>
-                        <field name="name" placeholder="Name...(ej. 'ingadhoc-80'"/>
+                        <field name="name" default_focus="1" placeholder="Name...(ej. 'ingadhoc-80'"/>
                         <field name="description" placeholder="Description..."/>
                     </h1>
                 </div>
                 <div class="oe_right oe_button_box" name="buttons">
-                    <button name="%(infrastructure.action_infrastructure_instance_instances)d" icon="fa-th" type="action" class="oe_stat_button" context="{'search_default_environment_id': id}">
+                    <button name="action_view_instances" icon="fa-th" type="object" class="oe_stat_button">
                         <field name="instance_count" widget="statinfo"/>
                     </button>
-                    <button name="%(infrastructure.action_infrastructure_database_databases)d" icon="fa-th" type="action" class="oe_stat_button" context="{'search_default_environment_id': id}">
+                    <button name="action_view_databases" icon="fa-th-list" type="object" class="oe_stat_button">
                         <field name="database_count" widget="statinfo"/>
                     </button>
+                </div>
+                <div class="oe_right oe_button_box" name="buttons_action">
+                    <button icon="fa-sun-o " type="object" string="Create Environment" class="oe_stat_button" help="Create Env, Source Path, Install Server and Install Pip Packages" name="create_environment" states="draft"/>
+                    <button icon="fa-refresh" type="object" string="Install Odoo" class="oe_stat_button" name="install_odoo" attrs="{'invisible':['|',('sever_copied', '=', False),('state', '!=', 'active')]}"/>
+                    <button icon="fa-trash-o" type="object" string="Delete" class="oe_stat_button" name="delete" states="active" confirm="Environment will be delated from server and will be unrecoverable, are you sure you want to continue?"/>
                 </div>
                 <group>
                     <group>
                         <field name="number" placeholder="(2 digits, >= 10)"/>
+                        <field name="partner_id"/>
                         <field name="type"/>
                         <field name="environment_version_id"/>
                     </group>
                     <group>
+                        <field name="install_server_command"/>
                         <field name="path"/>
                         <field name="sources_path"/>
                         <field name="backups_path"/>
-                        <field name="partner_id"/>
                     </group>
                 </group>
                 <notebook>
                     <page string="Configuration">
-                        <button icon="fa-sun-o " type="object" string="Create Environment" class="oe_stat_button" help="Create Env, Source Path, Install Server and Install Pip Packages" name="create_environment" attrs="{'invisible':[('state','!=','draft')]}"/>
-                        <button icon="fa-refresh" type="object" string="Install Odoo" class="oe_stat_button" name="install_odoo"/>
-                        <group col="1">
-                            <field name="install_server_command"/>
-                            <field name="environment_repository_ids"/>
-                        </group>
+                        <field name="environment_repository_ids" context="{'default_server_id': server_id}" attrs="{'readonly':[('sever_copied','=',False)]}"/>
                     </page>
                     <page string="Notes">
                         <field name="note"/>
@@ -111,8 +115,8 @@
                 colors="grey:state=='cancelled';blue:state in ('draft',);black:state in ('active',); red:state in ()"
                 >
                 <field name="message_unread" invisible="1"/>
-                <field name="number"/>
                 <field name="name"/>
+                <field name="number"/>
                 <field name="type"/>
                 <field name="description"/>
                 <field name="partner_id"/>
@@ -156,13 +160,6 @@
     </kanban>
   </field>
 </record>
-
-<!-- TODO hacerla linda vista kanban y agregar aqui abajo-->
-    <!-- <record id="infrastructure.action_infrastructure_environment_environments" model="ir.actions.act_window"> -->
-        <!-- <field name="view_mode">tree,form</field> -->
-        <!-- <field name="view_mode">kanban,tree,form</field> -->
-        <!-- <field name="view_id" ref=""/> -->
-    <!-- </record> -->
 
 <record id="action_infrastructure_environment_environments" model="ir.actions.act_window">
     <field name="name">Environments</field>
