@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <openerp>
-<data noupdate="0">
+<data>
 
 <record id="bd_backup_policy_hourly" model="infrastructure.db_backup_policy">
     <field name="name">Hourly - 1 per 4 hours (1 day)</field>
