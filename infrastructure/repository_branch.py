@@ -4,6 +4,7 @@ from openerp import models, fields
 
 
 class repository_branch(models.Model):
+
     """"""
 
     _name = 'infrastructure.repository_branch'

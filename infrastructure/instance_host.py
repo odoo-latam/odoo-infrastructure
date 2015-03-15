@@ -4,6 +4,7 @@ from openerp import models, fields, api
 
 
 class instance_host(models.Model):
+
     """"""
     # TODO name should be readonly but it does not save the value
     # , for now we keep it writable

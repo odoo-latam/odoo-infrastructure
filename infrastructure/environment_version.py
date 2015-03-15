@@ -4,6 +4,7 @@ from openerp import models, fields
 
 
 class environment_version(models.Model):
+
     """"""
 
     _odoo_versions_ = [

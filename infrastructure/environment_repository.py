@@ -7,7 +7,7 @@ from fabric.api import cd
 from .server import custom_sudo as sudo
 from fabric.contrib.files import exists
 import os
-from ast import literal_eval
+# from ast import literal_eval
 # TODO implement log_Event new login method
 
 
@@ -139,7 +139,7 @@ class environment_repository(models.Model):
                 self.environment_id.sources_path,
                 os.path.basename(
                     os.path.normpath(self.server_repository_id.path))
-                )
+            )
             if exists(path, use_sudo=True):
                 self.update_repository(path)
                 self.path = path

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from openerp.exceptions import Warning
+# from openerp.exceptions import Warning
 from openerp import models, fields
 
 
 class db_filter(models.Model):
+
     """"""
 
     _name = 'infrastructure.db_filter'

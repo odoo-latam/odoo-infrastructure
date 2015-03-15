@@ -198,11 +198,11 @@ class environment(models.Model):
         'environment_repository_ids',
         'environment_repository_ids.path',
         'environment_repository_ids.server_repository_id.repository_id.is_server',
-        )
+    )
     def _get_sever_copied(self):
         sever_copied = False
-        servers = [
-            x for x in self.environment_repository_ids if x.server_repository_id.repository_id.is_server and x.path]
+        servers = [x for x in self.environment_repository_ids if
+            x.server_repository_id.repository_id.is_server and x.path]
         if servers:
             sever_copied = True
         self.sever_copied = sever_copied
@@ -237,7 +237,7 @@ class environment(models.Model):
         environments = self.search(
             [('server_id', '=', self.server_id.id)],
             order='number desc',
-            )
+        )
         self.number = environments and environments[0].number + 1 or 10
 
     # No funciona como debe

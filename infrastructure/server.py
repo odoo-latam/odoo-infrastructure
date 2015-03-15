@@ -103,14 +103,16 @@ class server(models.Model):
         'res.partner',
         string='Owner',
         required=True,
-        help='Owner of the server, the one you should contacto to make changes on, for example, hardware.'
+        help='Owner of the server, the one you should contacto to make '
+             'changes on, for example, hardware.'
     )
 
     used_by_id = fields.Many2one(
         'res.partner',
         string='Used By',
         required=True,
-        help='Partner that can contact you and ask for changes on server configuration'
+        help='Partner that can contact you and ask for changes on server '
+             'configuration'
     )
 
     database_ids = fields.One2many(
@@ -213,7 +215,8 @@ class server(models.Model):
 
     postgres_superuser = fields.Char(
         string='Postgres Superuser',
-        help="Postgres Superuser. You can record and existing one or create a new one with an installation command",
+        help='Postgres Superuser. You can record and existing one or create '
+             'a new one with an installation command',
         readonly=True,
         states={'draft': [('readonly', False)]},
         default='odoo',
@@ -221,7 +224,8 @@ class server(models.Model):
 
     postgres_superuser_pass = fields.Char(
         string='Postgres Superuser Pwd',
-        help="Postgres Superuser Password. You can record and existing one or create a new one with an installation command",
+        help='Postgres Superuser Password. You can record and existing one '
+             'or create a new one with an installation command',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )

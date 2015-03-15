@@ -2,7 +2,7 @@
 
 from openerp import models, fields, api, _
 from openerp.exceptions import except_orm
-from fabric.api import cd, settings
+from fabric.api import cd  # , settings
 # utilizamos nuestro custom sudo que da un warning
 from .server import custom_sudo as sudo
 from fabric.contrib.files import exists
@@ -10,6 +10,7 @@ import os
 
 
 class server_repository(models.Model):
+
     """"""
 
     _name = 'infrastructure.server_repository'

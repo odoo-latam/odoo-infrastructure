@@ -17,13 +17,14 @@ class database(models.Model):
         readonly=True,
         required=True,
     )
-    state = fields.Selection([
-        ('uninstallable', 'Not Installable'),
-        ('uninstalled', 'Not Installed'),
-        ('installed', 'Installed'),
-        ('to upgrade', 'To be upgraded'),
-        ('to remove', 'To be removed'),
-        ('to install', 'To be installed')
+    state = fields.Selection(
+        [
+            ('uninstallable', 'Not Installable'),
+            ('uninstalled', 'Not Installed'),
+            ('installed', 'Installed'),
+            ('to upgrade', 'To be upgraded'),
+            ('to remove', 'To be removed'),
+            ('to install', 'To be installed')
         ],
         'Status',
         readonly=True,
@@ -47,8 +48,9 @@ class database(models.Model):
     def check_one_database(self):
         database = set([x.database_id for x in self])
         if len(database) != 1:
-            raise Warning(_(
-                'You can only use this function in modules of the same database'))
+            raise Warning(
+                _('You can only use this function in modules of the same '
+                  'database'))
         return database.pop()
 
     @api.multi

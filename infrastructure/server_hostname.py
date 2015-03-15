@@ -4,6 +4,7 @@ from openerp import models, fields, api, _
 
 
 class server_hostname(models.Model):
+
     """"""
 
     _name = 'infrastructure.server_hostname'
@@ -56,7 +57,7 @@ class server_hostname(models.Model):
         if not ids:
             return []
         if isinstance(ids, (int, long)):
-                    ids = [ids]
+            ids = [ids]
         reads = self.read(cr, uid, ids, ['name', 'wildcard'], context=context)
         res = []
         for record in reads:
