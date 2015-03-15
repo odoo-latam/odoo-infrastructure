@@ -618,10 +618,16 @@ class instance(models.Model):
         _logger.info("Creating unix user")
         self.environment_id.server_id.get_env()
         try:
-            sudo('adduser --system --ingroup odoo ' + self.user)
-        except Exception, e:
-            raise Warning(_("Can not create linux user %s, this is what we get: \n %s") % (
-                self.user, e))
+            sudo('id -u ' + self.user)
+        except:
+            try:
+                sudo('adduser --system --ingroup %s %s' % (
+                    self.environment_id.server_id.instance_user_group,
+                    self.user))
+            except Exception, e:
+                raise Warning(
+                    _("Can not create linux user %s, this is what we get: \n "
+                      "%s") % (self.user, e))
 
     @api.one
     def delete_user(self):
