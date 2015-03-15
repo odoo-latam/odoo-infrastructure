@@ -205,14 +205,6 @@ class server(models.Model):
         default='/etc/nginx/sites-enabled',
     )
 
-    nginx_sites_path = fields.Char(
-        string='Nginx Sites Path',
-        readonly=True,
-        required=True,
-        states={'draft': [('readonly', False)]},
-        default='/etc/nginx/sites-enabled',
-    )
-
     postgres_superuser = fields.Char(
         string='Postgres Superuser',
         help='Postgres Superuser. You can record and existing one or create '
