@@ -6,7 +6,7 @@ from fabric.api import env, reboot
 # from fabric.api import env, sudo, reboot
 # utilizamos nuestro custom sudo que da un warning
 # import custom_sudo as sudo
-from fabric.contrib.files import append
+from fabric.contrib.files import append, exists
 # For postfix
 from fabric.api import *
 from fabtools.deb import is_installed, preseed_package, install
@@ -361,6 +361,24 @@ class server(models.Model):
             self.postfix_hostname = self.main_hostname
 
     @api.one
+    @api.onchange('sources_path')
+    def change_sources_path(self):
+        if self.main_hostname:
+            self.check_sources_path()
+
+    @api.one
+    @api.onchange('service_path')
+    def change_service_path(self):
+        if self.main_hostname:
+            self.check_service_path()
+
+    @api.one
+    @api.onchange('instance_user_group')
+    def change_instance_user_group(self):
+        if self.main_hostname:
+            self.check_instance_user_group()
+
+    @api.one
     def unlink(self):
         if self.state not in ('draft', 'cancel'):
             raise Warning(_(
@@ -381,6 +399,40 @@ class server(models.Model):
     @api.depends('instance_ids')
     def _get_instances(self):
         self.instance_count = len(self.instance_ids)
+
+    @api.one
+    def check_sources_path(self):
+        """Check or exists source_path"""
+        self.get_env()
+        if not exists(self.sources_path):
+            raise Warning(
+                _('No Source Directory!'),
+                _("Please first create the source directory '%s'!") %
+                self.sources_path)
+        return self.sources_path
+
+    @api.one
+    def check_service_path(self):
+        """Check or exists service_path"""
+        self.get_env()
+        if not exists(self.service_path):
+            raise Warning(
+                _('Server Service Folder not Found!'),
+                _("Service folder '%s' not found. Please create it first!") %
+                self.service_path)
+        return self.service_path
+
+    @api.one
+    def check_instance_user_group(self):
+        """Check or exists user group"""
+        self.get_env()
+        try:
+            sudo('cat /etc/group | grep %s' % self.instance_user_group)
+        except:
+            raise Warning(
+                _('No Find User Group'),
+                _("Please first create the User Group '%s'!") %
+                self.nginx_log_path)
 
     @api.one
     def get_env(self):

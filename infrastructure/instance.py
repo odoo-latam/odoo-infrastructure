@@ -598,11 +598,7 @@ class instance(models.Model):
             self.user, self.conf_file_path, daemon)
 
         # Check service_path exists
-        service_path = self.environment_id.server_id.service_path
-        if not exists(service_path):
-            raise except_orm(_('Server Service Folder not Found!'),
-                             _("Service folter '%s' not found. \
-                                Please create it first!") % (service_path))
+        service_path = self.environment_id.server_id.check_service_path()
 
         # Check if service already exist
         service_file_path = os.path.join(service_path, self.service_file)
