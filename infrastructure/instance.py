@@ -557,7 +557,9 @@ class instance(models.Model):
         # TODO check that user exists
         # TODO tal vez -r -w para database data
         try:
-            sudo('chown ' + self.user + ':odoo -R ' + self.environment_id.path)
+            sudo('chown %s:%s -R %s' % (
+                self.user, self.server_id.instance_user_group,
+                self.environment_id.path))
             _logger.info("Running command: %s" % command)
             eggs_dir = '/home/%s/.python-eggs' % self.user
             if not exists(eggs_dir, use_sudo=True):

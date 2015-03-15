@@ -54,7 +54,8 @@ class server_repository(models.Model):
             cmd = 'git clone %s %s' % (self.repository_id.url, path)
             try:
                 # sudo(cmd, user=self.server_id.user_name, group='odoo')
-                sudo(cmd, user='odoo', group='odoo')
+                sudo(cmd, user=self.server_id.user_name,
+                     group=self.server_id.instance_user_group)
             except SystemExit, e:
                 raise except_orm(
                     _("Error executing '%s' on '%s'") % (cmd, path),
