@@ -117,14 +117,16 @@ class environment_repository(models.Model):
 
     @api.multi
     def check_for_addons_paths(self):
+        res = []
         if self.server_repository_id.repository_id.is_server:
-            res = [os.path.join(self.path, 'addons'), os.path.join(
+            res += [os.path.join(self.path, 'addons'), os.path.join(
                 self.path, 'openerp/addons')]
-        elif self.server_repository_id.repository_id.addons_subdirectory:
-            res = [os.path.join(
-                self.path,
-                self.server_repository_id.repository_id.addons_subdirectory)]
-        else:
+        if self.server_repository_id.repository_id.addons_subdirectory:
+            res += [os.path.join(
+                self.path, subdirectory) for subdirectory in
+                (self.server_repository_id.repository_id.addons_subdirectory
+                 ).split(',')]
+        if not res:
             res = [self.path]
         return res
 
