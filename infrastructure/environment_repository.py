@@ -153,6 +153,7 @@ class environment_repository(models.Model):
         # make checkout
         with cd(self.path):
             sudo('git checkout ' + self.branch_id.name)
+            sudo('git submodule update --init --recursive')
 
         if not literal_eval(self.addons_paths):
             self.addons_paths = self.check_for_addons_paths()

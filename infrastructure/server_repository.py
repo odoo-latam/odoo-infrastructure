@@ -56,6 +56,7 @@ class server_repository(models.Model):
                 # sudo(cmd, user=self.server_id.user_name, group='odoo')
                 sudo(cmd, user=self.server_id.user_name,
                      group=self.server_id.instance_user_group)
+                sudo('git submodule update --init --recursive')
             except SystemExit, e:
                 raise except_orm(
                     _("Error executing '%s' on '%s'") % (cmd, path),
@@ -66,6 +67,7 @@ class server_repository(models.Model):
             with cd(path.strip()):
                 try:
                     sudo(cmd)
+                    sudo('git submodule update --init --recursive')
                 except Exception, e:
                     raise except_orm(
                         _("Error executing '%s' on '%s'") % (cmd, path),

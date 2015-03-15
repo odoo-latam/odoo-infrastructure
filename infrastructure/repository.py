@@ -90,5 +90,6 @@ class repository(models.Model):
                 command += ' ' + self.directory
                 sudo(command)
                 path = os.path.join(server.sources_path, self.directory)
+                sudo('git submodule update --init --recursive')
                 # TODO implementar otros tipos de repos
         return path
