@@ -6,7 +6,8 @@ class database(models.Model):
 
     """"""
     _name = 'infrastructure.base.module'
-    # No hacemos la herencia porque si no nos trae un monton de metodos y constraints que no queremos
+    # No hacemos la herencia porque si no nos trae un monton de metodos y
+    # constraints que no queremos
     # _inherit = 'ir.module.module'
     _description = 'Infrastructure Base Module'
 
@@ -37,8 +38,7 @@ class database(models.Model):
         ('installed', 'Installed'),
         ('to upgrade', 'To be upgraded'),
         ('to remove', 'To be removed'),
-        ('to install', 'To be installed')
-        ],
+        ('to install', 'To be installed')],
         'Status',
         compute='get_state',
     )

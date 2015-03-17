@@ -4,6 +4,7 @@ from openerp import models, fields
 
 
 class mailserver(models.Model):
+
     """"""
 
     _name = 'infrastructure.mailserver'

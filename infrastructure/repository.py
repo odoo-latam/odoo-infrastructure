@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from openerp import models, fields, api, _
-from openerp.exceptions import except_orm
+from openerp import models, fields, api  # , _
+# from openerp.exceptions import except_orm
 import os
 from fabric.api import cd
 # utilizamos nuestro custom sudo que da un warning
@@ -77,18 +77,15 @@ class repository(models.Model):
     @api.one
     def get_repository(self, server):
         server.get_env()
-        if not exists(server.sources_path, use_sudo=True):
-            raise except_orm(
-                _('No Source Directory!'),
-                _("Please first create the source directory '%s'!")
-                % (server.sources_path,))
-        with cd(server.sources_path):
+        sources_path = server.check_sources_path()
+        with cd(sources_path):
             path = False
             if self.type == 'git':
                 command = 'git clone '
                 command += self.url
                 command += ' ' + self.directory
                 sudo(command)
-                path = os.path.join(server.sources_path, self.directory)
+                path = os.path.join(sources_path, self.directory)
+                sudo('git submodule update --init --recursive')
                 # TODO implementar otros tipos de repos
         return path

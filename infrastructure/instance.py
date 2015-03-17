@@ -55,7 +55,7 @@ class instance(models.Model):
         'Name',
         compute='get_display_name',
         store=True,
-        )
+    )
 
     name = fields.Char(
         string='Name',
@@ -86,7 +86,9 @@ class instance(models.Model):
         string='Limit Time Real',
         required=True,
         default=120,
-        help='Maximum allowed Real time per request. The default odoo value is 120 but sometimes we use 300 to avoid some workers timeout error',
+        help='Maximum allowed Real time per request. The default odoo value '
+             'is 120 but sometimes we use 300 to avoid some workers timeout '
+             'error',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
@@ -95,7 +97,9 @@ class instance(models.Model):
         string='Limit Time CPU',
         required=True,
         default=120,
-        help='Maximum allowed CPU time per request. The default odoo value is 60 but sometimes we use 120 to avoid some workers timeout error',
+        help='Maximum allowed CPU time per request. The default odoo value '
+             'is 60 but sometimes we use 120 to avoid some workers timeout '
+             'error',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
@@ -104,7 +108,8 @@ class instance(models.Model):
         string='DB Max connections',
         required=True,
         default=32,
-        help='Specify the the maximum number of physical connections to posgresql. Default odoo config is 64, we use 32.',
+        help='Specify the the maximum number of physical connections to '
+             'posgresql. Default odoo config is 64, we use 32.',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
@@ -333,7 +338,7 @@ class instance(models.Model):
         'name',
         'environment_id',
         'environment_id.name',
-        )
+    )
     def get_display_name(self):
         self.display_name = "%s - %s" % (
             self.environment_id.name or '', self.name or '')
@@ -404,7 +409,7 @@ class instance(models.Model):
         instances = self.search(
             [('environment_id', '=', self.environment_id.id)],
             order='number desc',
-            )
+        )
         self.number = instances and instances[0].number + 1 or 1
 
     @api.one
@@ -521,7 +526,8 @@ class instance(models.Model):
         command += ' --limit-time-cpu=' + str(self.limit_time_cpu)
         command += ' --db_maxconn=' + str(self.db_maxconn)
 
-        if self.environment_id.environment_version_id.name in ('8.0', 'master'):
+        if self.environment_id.environment_version_id.name in (
+                '8.0', 'master'):
             if self.data_dir:
                 command += ' --data-dir=' + self.data_dir
             if self.longpolling_port:
@@ -551,7 +557,9 @@ class instance(models.Model):
         # TODO check that user exists
         # TODO tal vez -r -w para database data
         try:
-            sudo('chown ' + self.user + ':odoo -R ' + self.environment_id.path)
+            sudo('chown %s:%s -R %s' % (
+                self.user, self.server_id.instance_user_group,
+                self.environment_id.path))
             _logger.info("Running command: %s" % command)
             eggs_dir = '/home/%s/.python-eggs' % self.user
             if not exists(eggs_dir, use_sudo=True):
@@ -560,10 +568,12 @@ class instance(models.Model):
                 sudo('chmod g+rw -R ' + self.environment_id.path)
                 sudo(command, user=self.user)
         except Exception, e:
-            raise Warning(_("Can not create/update configuration file, this is what we get: \n %s") % (
-                e))
+            raise Warning(
+                _("Can not create/update configuration file, this is what we "
+                  "get: \n %s") % e)
         # TODO cambiar esto por el webservice que permite cambiar el admin pass
-        sed(self.conf_file_path, '(admin_passwd).*', 'admin_passwd = ' + self.admin_pass, use_sudo=True)
+        sed(self.conf_file_path, '(admin_passwd).*',
+            'admin_passwd = ' + self.admin_pass, use_sudo=True)
         if start_service:
             self.start_service()
 
@@ -575,8 +585,8 @@ class instance(models.Model):
         try:
             sudo('rm ' + service_file_path)
         except Exception, e:
-            _logger.warning(("Could delete service file '%s', this is what we get: \n %s") % (
-                self.service_file, e))
+            _logger.warning(("Could delete service file '%s', this is what we "
+                             "get: \n %s") % (self.service_file, e))
 
     @api.multi
     def update_service_file(self):
@@ -588,11 +598,7 @@ class instance(models.Model):
             self.user, self.conf_file_path, daemon)
 
         # Check service_path exists
-        service_path = self.environment_id.server_id.service_path
-        if not exists(service_path):
-            raise except_orm(_('Server Service Folder not Found!'),
-                             _("Service folter '%s' not found. \
-                                Please create it first!") % (service_path))
+        service_path = self.environment_id.server_id.check_service_path()
 
         # Check if service already exist
         service_file_path = os.path.join(service_path, self.service_file)
@@ -608,10 +614,16 @@ class instance(models.Model):
         _logger.info("Creating unix user")
         self.environment_id.server_id.get_env()
         try:
-            sudo('adduser --system --ingroup odoo ' + self.user)
-        except Exception, e:
-            raise Warning(_("Can not create linux user %s, this is what we get: \n %s") % (
-                self.user, e))
+            sudo('id -u ' + self.user)
+        except:
+            try:
+                sudo('adduser --system --ingroup %s %s' % (
+                    self.environment_id.server_id.instance_user_group,
+                    self.user))
+            except Exception, e:
+                raise Warning(
+                    _("Can not create linux user %s, this is what we get: \n "
+                      "%s") % (self.user, e))
 
     @api.one
     def delete_user(self):
@@ -620,8 +632,8 @@ class instance(models.Model):
         try:
             sudo('deluser %s' % self.user)
         except Exception, e:
-            _logger.warning(("Can not delete linux user %s, this is what we get: \n %s") % (
-                self.user, e))
+            _logger.warning(("Can not delete linux user %s, this is what we "
+                             "get: \n %s") % (self.user, e))
 
     @api.one
     def create_pg_user(self):
@@ -631,8 +643,9 @@ class instance(models.Model):
             try:
                 sudo('sudo -u postgres createuser -d -R -S ' + self.user)
             except Exception, e:
-                raise Warning(_("Can not create postgres user %s, this is what we get: \n %s") % (
-                    self.user, e))
+                raise Warning(
+                    _("Can not create postgres user %s, this is what we get: "
+                      "\n %s") % (self.user, e))
 
     @api.one
     def delete_pg_user(self):
@@ -642,8 +655,9 @@ class instance(models.Model):
             try:
                 sudo('sudo -u postgres dropuser %s' % self.user)
             except Exception, e:
-                raise Warning(_("Can not delete postgres user %s, this is what we get: \n %s") % (
-                    self.user, e))
+                raise Warning(
+                    _("Can not delete postgres user %s, this is what we get: "
+                      "\n %s") % (self.user, e))
 
     @api.one
     def start_service(self):
@@ -677,8 +691,9 @@ class instance(models.Model):
         try:
             sudo('service ' + self.service_file + ' restart')
         except Exception, e:
-            raise Warning(_("Could not restart service '%s', this is what we get: \n %s") % (
-                self.service_file, e))
+            raise Warning(
+                _("Could not restart service '%s', this is what we get: \n "
+                  "%s") % (self.service_file, e))
 
     @api.one
     def run_on_start(self):
@@ -687,8 +702,9 @@ class instance(models.Model):
         try:
             sudo('update-rc.d  ' + self.service_file + ' defaults')
         except Exception, e:
-            raise Warning(_("Could not add service '%s' to run on start, this is what we get: \n %s") % (
-                self.service_file, e))
+            raise Warning(
+                _("Could not add service '%s' to run on start, this is what "
+                  "we get: \n %s") % (self.service_file, e))
 
     @api.one
     def stop_run_on_start(self):
@@ -698,8 +714,9 @@ class instance(models.Model):
             sudo('update-rc.d  -f ' + self.service_file + ' remove')
         # we dont raise and exception, jus print on logg
         except Exception, e:
-            _logger.warning(("Could not stop service '%s' to run on start, this is what we get: \n %s") % (
-                self.service_file, e))
+            _logger.warning(
+                ("Could not stop service '%s' to run on start, this is what "
+                 "we get: \n %s") % (self.service_file, e))
 
     @api.one
     def delete_nginx_site(self):
@@ -713,8 +730,9 @@ class instance(models.Model):
         try:
             sudo('rm -f %s' % nginx_site_file_path)
         except Exception, e:
-            _logger.warning(("Could remove nginx site file '%s', this is what we get: \n %s") % (
-                self.service_file, e))
+            _logger.warning(
+                ("Could remove nginx site file '%s', this is what we get: \n "
+                 "%s") % (self.service_file, e))
 
     @api.one
     def update_nginx_site(self):

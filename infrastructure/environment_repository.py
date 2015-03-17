@@ -7,7 +7,7 @@ from fabric.api import cd
 from .server import custom_sudo as sudo
 from fabric.contrib.files import exists
 import os
-from ast import literal_eval
+# from ast import literal_eval
 # TODO implement log_Event new login method
 
 
@@ -117,14 +117,16 @@ class environment_repository(models.Model):
 
     @api.multi
     def check_for_addons_paths(self):
+        res = []
         if self.server_repository_id.repository_id.is_server:
-            res = [os.path.join(self.path, 'addons'), os.path.join(
+            res += [os.path.join(self.path, 'addons'), os.path.join(
                 self.path, 'openerp/addons')]
-        elif self.server_repository_id.repository_id.addons_subdirectory:
-            res = [os.path.join(
-                self.path,
-                self.server_repository_id.repository_id.addons_subdirectory)]
-        else:
+        if self.server_repository_id.repository_id.addons_subdirectory:
+            res += [os.path.join(
+                self.path, subdirectory) for subdirectory in
+                (self.server_repository_id.repository_id.addons_subdirectory
+                 ).split(',')]
+        if not res:
             res = [self.path]
         return res
 
@@ -139,7 +141,7 @@ class environment_repository(models.Model):
                 self.environment_id.sources_path,
                 os.path.basename(
                     os.path.normpath(self.server_repository_id.path))
-                )
+            )
             if exists(path, use_sudo=True):
                 self.update_repository(path)
                 self.path = path
@@ -153,6 +155,7 @@ class environment_repository(models.Model):
         # make checkout
         with cd(self.path):
             sudo('git checkout ' + self.branch_id.name)
+            sudo('git submodule update --init --recursive')
 
         if not literal_eval(self.addons_paths):
             self.addons_paths = self.check_for_addons_paths()

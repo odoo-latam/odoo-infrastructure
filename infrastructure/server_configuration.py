@@ -4,6 +4,7 @@ from openerp import models, fields
 
 
 class server_configuration(models.Model):
+
     """"""
 
     _name = 'infrastructure.server_configuration'

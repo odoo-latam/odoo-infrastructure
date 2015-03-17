@@ -2,7 +2,7 @@
 
 from openerp import models, fields, api, _
 from openerp.exceptions import except_orm
-from fabric.api import cd, settings
+from fabric.api import cd  # , settings
 # utilizamos nuestro custom sudo que da un warning
 from .server import custom_sudo as sudo
 from fabric.contrib.files import exists
@@ -10,6 +10,7 @@ import os
 
 
 class server_repository(models.Model):
+
     """"""
 
     _name = 'infrastructure.server_repository'
@@ -53,7 +54,9 @@ class server_repository(models.Model):
             cmd = 'git clone %s %s' % (self.repository_id.url, path)
             try:
                 # sudo(cmd, user=self.server_id.user_name, group='odoo')
-                sudo(cmd, user='odoo', group='odoo')
+                sudo(cmd, user=self.server_id.user_name,
+                     group=self.server_id.instance_user_group)
+                sudo('git submodule update --init --recursive')
             except SystemExit, e:
                 raise except_orm(
                     _("Error executing '%s' on '%s'") % (cmd, path),
@@ -64,6 +67,7 @@ class server_repository(models.Model):
             with cd(path.strip()):
                 try:
                     sudo(cmd)
+                    sudo('git submodule update --init --recursive')
                 except Exception, e:
                     raise except_orm(
                         _("Error executing '%s' on '%s'") % (cmd, path),

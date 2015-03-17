@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from openerp import models, fields, api
+from openerp import models, fields  # , api
 from openerp.tools.safe_eval import safe_eval as eval
 from fabric.api import run, cd, env
 # utilizamos nuestro custom sudo que da un warning
@@ -12,6 +12,7 @@ import os
 
 
 class server_configuration_command(models.Model):
+
     """"""
 
     _name = 'infrastructure.server_configuration_command'

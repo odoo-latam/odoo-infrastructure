@@ -70,7 +70,7 @@ class infrastructure_restore_database_wizard(models.TransientModel):
     new_db_name = fields.Char(
         string='New db Name',
         required=True
-        )
+    )
     # TODO ver si incorporamos la posibilidad de que se sobreescriba a la misma bd en la que estamos parados
     # el tema es que actualmente usamos dicha bd para restaurar a traves de database_tools por lo cual no andaria
     # overwrite_active = fields.Boolean(

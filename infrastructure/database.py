@@ -178,7 +178,8 @@ class database(models.Model):
     )
     admin_password = fields.Char(
         string='Admin Password',
-        help='When trying to connect to the database first we are going to try by using the instance password and then with thisone.',
+        help='When trying to connect to the database first we are going to '
+             'try by using the instance password and then with thisone.',
         # required=True,
         default='admin',
         readonly=True,
@@ -355,7 +356,8 @@ class database(models.Model):
             try:
                 sock._()   # Call a fictive method.
             except xmlrpclib.Fault:
-                # connected to the server and the method doesn't exist which is expected.
+                # connected to the server and the method doesn't exist which is
+                # expected.
                 _logger.info("Connected to socket")
                 connected = True
                 pass
@@ -363,7 +365,8 @@ class database(models.Model):
                 _logger.info("Could not connect to socket")
                 pass
             except:
-                # Tuve que agregar este porque el error no me era atrapado arriba
+                # Tuve que agregar este porque el error no me era atrapado
+                # arriba
                 _logger.info("Connecting3")
                 pass
         if not connected:
@@ -396,7 +399,8 @@ class database(models.Model):
             # If we get an error we try restarting the service
             try:
                 self.instance_id.restart_service()
-                # we ask again for sock and try to connect waiting for service start
+                # we ask again for sock and try to connect waiting for service
+                # start
                 sock = self.get_sock(max_attempts=1000)
                 sock.drop(self.instance_id.admin_pass, self.name)
             except Exception, e:
@@ -502,18 +506,20 @@ class database(models.Model):
             'backups_enable': backups_enable,
             'issue_date': fields.Date.today(),
             'database_type_id': database_type.id,
-            })
+        })
         try:
             sock.duplicate_database(
                 self.instance_id.admin_pass, self.name, new_database_name)
         except:
-            # If we get an error we try duplicating restarting service without workers
+            # If we get an error we try duplicating restarting service without
+            # workers
             try:
                 # restart the instance without workers
                 instance = self.instance_id
                 instance.update_conf_file(force_no_workers=True)
                 instance.start_service()
-                # we ask again for sock and try to connect waiting for service start
+                # we ask again for sock and try to connect waiting for service
+                # start
                 sock = self.get_sock(max_attempts=1000)
                 sock.duplicate_database(
                     self.instance_id.admin_pass, self.name, new_database_name)
@@ -525,7 +531,8 @@ class database(models.Model):
                 # TODo agregar aca releer los modulos y demas en la nueva bd
             except Exception, e:
                 raise Warning(
-                    _('Unable to duplicate Database. This is what we get:\n%s') % (e))
+                    _('Unable to duplicate Database. This is what we '
+                       'get:\n%s') % (e))
         client.model('db.database').backups_state(
             new_database_name, backups_enable)
         new_db.signal_workflow('sgn_to_active')
@@ -579,7 +586,8 @@ class database(models.Model):
         for module in modules:
             if client.modules(name=module, installed=True) is None:
                 raise Warning(
-                    _("You can not kill connections if module '%s' is not installed in the database") % (module))
+                    _("You can not kill connections if module '%s' is not "
+                      "installed in the database") % (module))
 
         self_db_id = client.model('ir.model.data').xmlid_to_res_id(
             'database_tools.db_self_database')
@@ -628,7 +636,8 @@ class database(models.Model):
         for module in modules:
             if client.modules(name=module, installed=True) is None:
                 raise Warning(
-                    _("You can not Update Backups Data if module '%s' is not installed in the database") % (module))
+                    _("You can not Update Backups Data if module '%s' is not "
+                      "installed in the database") % (module))
         self_db_id = client.model('ir.model.data').xmlid_to_res_id(
             'database_tools.db_self_database')
         backups_data = client.read(
@@ -640,7 +649,7 @@ class database(models.Model):
             'name',
             'path',
             'type',
-            ]
+        ]
         rows = []
         for backup in backups_data:
             row = [
@@ -750,7 +759,8 @@ class database(models.Model):
         for module in modules:
             if client.modules(name=module, installed=True) is None:
                 raise Warning(
-                    _("You can not configure backups if module '%s' is not installed in the database") % (module))
+                    _("You can not configure backups if module '%s' is not "
+                      "installed in the database") % (module))
 
         # Configure backups
         self_db_id = client.model('ir.model.data').xmlid_to_res_id(
@@ -772,13 +782,16 @@ class database(models.Model):
         for module in modules:
             if client.modules(name=module, installed=True) is None:
                 raise Warning(
-                    _("You can not configure catchall if module '%s' is not installed in the database") % (module))
+                    _("You can not configure catchall if module '%s' is not "
+                      "installed in the database") % (module))
         if not self.local_alias:
             raise Warning(
-                _("You can not configure catchall if Local Alias is not set. Probably this is because Mailgate File was not found"))
+                _("You can not configure catchall if Local Alias is not set. "
+                  "Probably this is because Mailgate File was not found"))
         if not exists(self.mailgate_path, use_sudo=True):
-            raise Warning(_("Mailgate file was not found on mailgate path '%s' base path found for mail module") % (
-                self.mailgate_path))
+            raise Warning(
+                _("Mailgate file was not found on mailgate path '%s' base "
+                  "path found for mail module") % (self.mailgate_path))
         # Configure domain_alias on databas
         client.model('ir.config_parameter').set_param(
             "mail.catchall.domain", self.domain_alias or '')
