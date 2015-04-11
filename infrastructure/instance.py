@@ -20,7 +20,7 @@ import fabtools
 _logger = logging.getLogger(__name__)
 
 
-# test commit hook
+# test commit hook 2
 
 class instance(models.Model):
 
