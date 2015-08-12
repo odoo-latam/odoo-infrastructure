@@ -769,13 +769,14 @@ class instance(models.Model):
         if server_names == '' and nginx_site_file == '':
             raise Warning(_('You Must set at least one instance host!'))
 
-        nginx_site_file += nginx_site_template % (
-            listen_port, server_names,
-            acces_log,
-            error_log,
-            xmlrpc_port,
-            nginx_long_polling
-        )
+        if server_names > '':
+            nginx_site_file += nginx_site_template % (
+                listen_port, server_names,
+                acces_log,
+                error_log,
+                xmlrpc_port,
+                nginx_long_polling
+            )
 
         # Check nginx sites-enabled directory exists
         nginx_sites_path = self.environment_id.server_id.nginx_sites_path
