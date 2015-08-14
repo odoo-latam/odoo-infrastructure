@@ -78,6 +78,12 @@ class instance(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
+    
+    certificate = fields.Many2one(
+        'infrastructure.certificate',
+        string='Certificate',
+        domain=[('server_id','=',server_id)]
+    )
 
     db_filter = fields.Many2one(
         'infrastructure.db_filter',
@@ -308,6 +314,12 @@ class instance(models.Model):
         related='environment_id.server_id',
         store=True,
         readonly=True
+    )
+    
+    certificate = fields.Many2one(
+        'infrastructure.certificate',
+        string='Certificate',
+        domain=[('server_id','=',server_id)]
     )
 
     _sql_constraints = [

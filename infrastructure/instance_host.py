@@ -62,7 +62,7 @@ class instance_host(models.Model):
     
     certificate_id = fields.Many2one(
         'infrastructure.certificate',
-        string='Database',
+        string='Certificate',
         domain=[('server_id','=',server_id)]
     )
     
