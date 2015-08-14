@@ -2,16 +2,20 @@
 from openerp import models, fields, api, SUPERUSER_ID, netsvc, _
 from openerp.exceptions import except_orm
 import xmlrpclib
+import socket
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
-from fabric.api import sudo
+# from fabric.api import sudo
+# utilizamos nuestro custom sudo que da un warning
+from .server import custom_sudo as sudo
 from fabric.contrib.files import exists, append, sed
-from os import path
 from erppeek import Client
 from openerp.exceptions import Warning
 from ast import literal_eval
 import os
 import base64
+import logging
+_logger = logging.getLogger(__name__)
 
 
 class database(models.Model):
@@ -49,15 +53,21 @@ class database(models.Model):
         },
     }
 
+    @api.model
+    def _get_base_modules(self):
+        base_modules = self.env['infrastructure.base.module'].search([
+            ('default_on_new_db', '=', True)])
+        return [(6, _, base_modules.ids)]
+
     database_type_id = fields.Many2one(
         'infrastructure.database_type',
         string='Database Type',
         readonly=True,
         required=True,
         states={'draft': [('readonly', False)]},
-        track_visibility='onchange'
+        track_visibility='onchange',
+        copy=False,
     )
-
     name = fields.Char(
         string='Name',
         required=True,
@@ -65,35 +75,29 @@ class database(models.Model):
         states={'draft': [('readonly', False)]},
         track_visibility='onchange'
     )
-
     partner_id = fields.Many2one(
         'res.partner',
         string='Partner',
-        required=True,
+        #required=True,
     )
-
     demo_data = fields.Boolean(
         string='Demo Data?',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
-
     note = fields.Html(
         string='Note'
     )
-
     smtp_server_id = fields.Many2one(
         'infrastructure.mailserver',
         string='SMTP Server',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        # readonly=True,
+        # states={'draft': [('readonly', False)]},
     )
-
     domain_alias = fields.Char(
         string='Domain Alias',
         compute='get_domain_alias',
     )
-
     attachment_loc_type = fields.Selection(
         [(u'filesystem', 'filesystem'), (u'database', 'database')],
         string='Attachment Location Type',
@@ -101,25 +105,32 @@ class database(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
-
     attachment_location = fields.Char(
         string='Attachment Location',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
-
     issue_date = fields.Date(
-        string='Issue Data'
+        string='Issue Data',
+        copy=False,
+        default=fields.Date.context_today,
     )
-
     deactivation_date = fields.Date(
-        string='Deactivation Date'
+        string='Deactivation Date',
+        copy=False,
     )
-
     state = fields.Selection(
         _states_,
         'State',
         default='draft'
+    )
+
+    db_backup_policy_ids = fields.Many2many(
+        'infrastructure.db_backup_policy',
+        'infrastructure_database_ids_db_backup_policy_ids_rel',
+        'database_id',
+        'db_backup_policy_id',
+        string='Suggested Backup Policies'
     )
 
     instance_id = fields.Many2one(
@@ -130,7 +141,6 @@ class database(models.Model):
         states={'draft': [('readonly', False)]},
         required=True,
     )
-
     environment_id = fields.Many2one(
         'infrastructure.environment',
         string='Environment',
@@ -138,7 +148,6 @@ class database(models.Model):
         store=True,
         readonly=True,
     )
-
     server_id = fields.Many2one(
         'infrastructure.server',
         string='Server',
@@ -146,43 +155,28 @@ class database(models.Model):
         store=True,
         readonly=True,
     )
-
     protected_db = fields.Boolean(
         string='Protected DB?',
         related='database_type_id.protect_db',
         store=True,
         readonly=True,
     )
-
     color = fields.Integer(
         string='Color',
         related='database_type_id.color',
         store=True,
         readonly=True,
     )
-
-    deactivation_date = fields.Date(
-        string='Deactivation Date',
-    )
-
     backup_ids = fields.One2many(
         'infrastructure.database.backup',
         'database_id',
         string='Backups',
     )
-
     module_ids = fields.One2many(
         'infrastructure.database.module',
         'database_id',
         string='Modules',
     )
-
-    @api.model
-    def _get_base_modules(self):
-        base_modules = self.env['infrastructure.base.module'].search([
-            ('default_on_new_db', '=', True)])
-        return [(6, _, base_modules.ids)]
-
     base_module_ids = fields.Many2many(
         'infrastructure.base.module',
         'infrastructure_database_ids_base_module_rel',
@@ -191,7 +185,6 @@ class database(models.Model):
         string='Base Modules',
         default=_get_base_modules,
     )
-
     admin_password = fields.Char(
         string='Admin Password',
         help='When trying to connect to the database first we are going to try by using the instance password and then with thisone.',
@@ -201,56 +194,59 @@ class database(models.Model):
         states={'draft': [('readonly', False)]},
         # deprecated=True,  # we use server admin pass to autheticate now
     )
-
     virtual_alias = fields.Char(
         string='Virtual Alias',
         compute='get_aliases',
     )
-
     local_alias = fields.Char(
         string='Local Alias',
         compute='get_aliases',
     )
-
     mailgate_path = fields.Char(
         string='Mailgate Path',
         compute='get_mailgate_path',
     )
-
     alias_prefix = fields.Char(
         'Alias Prefix',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        # readonly=True,
+        # states={'draft': [('readonly', False)]},
+        copy=False,
     )
 
     alias_hostname_id = fields.Many2one(
         'infrastructure.server_hostname',
         string='Alias Hostname',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        # readonly=True,
+        # states={'draft': [('readonly', False)]},
+        copy=False,
     )
-
     alias_hostname_wildcard = fields.Boolean(
         related='alias_hostname_id.wildcard',
         string='Wildcard?',
         readonly=True,
+        copy=False,
     )
-
     module_count = fields.Integer(
         string='# Modules',
-        compute='_get_modules'
+        compute='_get_modules',
     )
-    daily_backup = fields.Boolean(
-        string='Daily Backups?',
+    ##daily_backup = fields.Boolean(
+    ##    string='Daily Backups?',
+    ##)
+    ##weekly_backup = fields.Boolean(
+    ##    string='Weekly Backups?',
+    ##)
+    ##monthly_backup = fields.Boolean(
+    ##    string='Monthly Backups?',
+    ##)
+    ##backups_enable = fields.Boolean(
+    ##    'Backups Enable',
+    ##    copy=False,
+    ##)
+    catchall_enable = fields.Boolean(
+        'Catchall Enable',
+        copy=False,
     )
-    weekly_backup = fields.Boolean(
-        string='Weekly Backups?',
-    )
-    monthly_backup = fields.Boolean(
-        string='Monthly Backups?',
-    )
-    backups_enable = fields.Boolean(
-        'Backups Enable')
 
     @api.one
     @api.onchange('instance_id')
@@ -315,8 +311,8 @@ class database(models.Model):
     _sql_constraints = [
         ('name_uniq', 'unique(name, server_id)',
             'Database Name Must be Unique per server'),
-        ('domain_alias_uniq', 'unique(domain_alias)',
-            'Domain Alias Must be Unique'),
+        #('domain_alias_uniq', 'unique(domain_alias)',
+        #    'Domain Alias Must be Unique'),
     ]
 
     @api.one
@@ -331,7 +327,7 @@ class database(models.Model):
     def onchange_database_type_id(self):
         if self.database_type_id:
             self.name = self.database_type_id.prefix + '_'
-            # TODO send suggested backup data
+            self.db_backup_policy_ids = self.database_type_id.db_backup_policy_ids
 
     @api.one
     @api.onchange('database_type_id', 'issue_date')
@@ -353,19 +349,40 @@ class database(models.Model):
 # DATABASE CRUD
 
     @api.multi
-    def get_sock(self, service='db'):
+    def get_sock(self, service='db', max_attempts=5):
         self.ensure_one()
-        # base_url = self.instance_id.environment_id.server_id.main_hostname
         base_url = self.instance_id.main_hostname
-        # server_port = 80
-        # server_port = self.instance_id.xml_rpc_port
-        # rpc_db_url = 'http://%s:%d/xmlrpc/db' % (base_url, server_port)
         rpc_db_url = 'http://%s/xmlrpc/%s' % (base_url, service)
-        return xmlrpclib.ServerProxy(rpc_db_url)
+        sock = xmlrpclib.ServerProxy(rpc_db_url)
+
+        # try connection
+        connected = False
+        attempts = 0
+        while not connected and attempts < max_attempts:
+            attempts += 1
+            _logger.info("Connecting, attempt number: %i" % attempts)
+            try:
+                sock._()   # Call a fictive method.
+            except xmlrpclib.Fault:
+                # connected to the server and the method doesn't exist which is expected.
+                _logger.info("Connected to socket")
+                connected = True
+                pass
+            except socket.error:
+                _logger.info("Could not connect to socket")
+                pass
+            except:
+                # Tuve que agregar este porque el error no me era atrapado arriba
+                _logger.info("Connecting3")
+                pass
+        if not connected:
+            raise Warning(_("Could not connect to socket '%s'") % (rpc_db_url))
+        return sock
 
     @api.one
     def create_db(self):
         """Funcion que utliza erpeek para crear bds"""
+        _logger.info("Creating db '%s'" % (self.name))
         client = self.get_client(not_database=True)
         client.create_database(
             self.instance_id.admin_pass,
@@ -380,15 +397,25 @@ class database(models.Model):
     @api.one
     def drop_db(self):
         """Funcion que utiliza ws nativos de odoo para eliminar db"""
+        _logger.info("Dropping db '%s'" % (self.name))
         sock = self.get_sock()
         try:
             sock.drop(self.instance_id.admin_pass, self.name)
         except:
-            raise Warning(
-                _('Unable to drop Database. If you are working in an \
+            # If we get an error we try restarting the service
+            try:
+                self.instance_id.restart_service()
+                # we ask again for sock and try to connect waiting for service start
+                sock = self.get_sock(max_attempts=1000)
+                sock.drop(self.instance_id.admin_pass, self.name)
+            except Exception, e:
+                raise Warning(
+                    _('Unable to drop Database. If you are working in an \
                     instance with "workers" then you can try \
-                    restarting service.'))
+                    restarting service. This is what we get:\n%s') % (e))
         self.signal_workflow('sgn_cancel')
+
+    
 
     @api.one
     def dump_db(self):
@@ -402,57 +429,65 @@ class database(models.Model):
                 sock.dump(self.instance_id.admin_pass, self.name)))
             # return sock.dump(self.instance_id.admin_pass, self.name)
             backup_file.close()
-        except:
+        except Exception, e:
             raise Warning(
                 _('Unable to dump Database. If you are working in an \
-                    instance with "workers" then you can try \
-                    restarting service.'))
+                instance with "workers" then you can try \
+                restarting service. This is what we get:\n%s') % (e))
 
     @api.one
     def migrate_db(self):
         """Funcion que utiliza ws nativos de odoo para hacer update de bd"""
+        _logger.info("Migrating db '%s'" % (self.name))
         sock = self.get_sock()
         try:
             return sock.migrate_databases(
                 self.instance_id.admin_pass, [self.name])
-        except:
+        except Exception, e:
             raise Warning(
                 _('Unable to migrate Database. If you are working in an \
-                    instance with "workers" then you can try \
-                    restarting service.'))
+                instance with "workers" then you can try \
+                restarting service. This is what we get:\n%s') % (e))
 
     @api.one
-    def rename_db(self):
+    def rename_db(self, new_name):
         """Funcion que utiliza ws nativos de odoo para hacer update de bd"""
-        raise Warning(_('Not Implemented yet'))
+        _logger.info("Rennaming db '%s' to '%s'" % (self.name, new_name))
         sock = self.get_sock()
-        new_name = 'pepito'  # implementar esto
         try:
-            return sock.rename(
-                self.instance_id.admin_pass, self.name, new_name)
+            sock.rename(self.instance_id.admin_pass, self.name, new_name)
         except:
-            raise Warning(
-                _('Unable to Rename Database. If you are working in an \
+            # If we get an error we try restarting the service
+            try:
+                self.instance_id.restart_service()
+                # we ask again for sock and try to connect waiting for start
+                sock = self.get_sock(max_attempts=1000)
+                sock.rename(self.instance_id.admin_pass, self.name, new_name)
+            except Exception, e:
+                raise Warning(
+                    _('Unable to rename Database. If you are working in an \
                     instance with "workers" then you can try \
-                    restarting service.'))
+                    restarting service. This is what we get:\n%s') % (e))
+        self.name = new_name
 
-    @api.one
-    def restore_db(self):
-        """Funcion que utiliza ws nativos de odoo para hacer update de bd"""
-        raise Warning(_('Not Implemented yet'))
-        # TODO implementar
-        sock = self.get_sock()
-        f = file('/home/chosco/back/backup.dump', 'r')
-        data_b64 = base64.encodestring(f.read())
-        f.close()
-        try:
-            return sock.restore(
-                self.instance_id.admin_pass, self.name, data_b64)
-        except:
-            raise Warning(
-                _('Unable to migrate Database. If you are working in an \
-                    instance with "workers" then you can try \
-                    restarting service.'))
+# TODO borrar esta funcion que va en database backup
+    # @api.one
+    # def restore_db(self):
+    #     """Funcion que utiliza ws nativos de odoo para hacer update de bd"""
+    #     raise Warning(_('Not Implemented yet'))
+    #     # TODO implementar
+    #     sock = self.get_sock()
+    #     f = file('/home/chosco/back/backup.dump', 'r')
+    #     data_b64 = base64.encodestring(f.read())
+    #     f.close()
+    #     try:
+    #         return sock.restore(
+    #             self.instance_id.admin_pass, self.name, data_b64)
+    #     except:
+    #         raise Warning(
+    #             _('Unable to migrate Database. If you are working in an \
+    #                 instance with "workers" then you can try \
+    #                 restarting service.'))
 
     @api.one
     def exist_db(self, database_name):
@@ -463,26 +498,79 @@ class database(models.Model):
         else:
             return False
 
-    @api.one
-    def duplicate_db(self, new_database_name, backups_enable):
+    @api.multi
+    def duplicate_db(self, new_database_name, backups_enable, database_type):
         """Funcion que utiliza ws nativos de odoo para hacer duplicar bd"""
-        client = self.get_client()
+        self.ensure_one()
         sock = self.get_sock()
+        client = self.get_client()
         new_db = self.copy({
             'name': new_database_name,
-            'backups_enable': backups_enable
+            'backups_enable': backups_enable,
+            'issue_date': fields.Date.today(),
+            'database_type_id': database_type.id,
             })
-        self.kill_db_connection()
         try:
             sock.duplicate_database(
                 self.instance_id.admin_pass, self.name, new_database_name)
-            client.model('db.database').backups_state(
-                new_database_name, backups_enable)
-        except Exception, e:
-            raise Warning(
-                _('Unable to duplicate Database. This is what we get:\n%s') % (e))
+        except:
+            # If we get an error we try duplicating restarting service without workers
+            try:
+                # restart the instance without workers
+                instance = self.instance_id
+                instance.update_conf_file(force_no_workers=True)
+                instance.start_service()
+                # we ask again for sock and try to connect waiting for service start
+                sock = self.get_sock(max_attempts=1000)
+                sock.duplicate_database(
+                    self.instance_id.admin_pass, self.name, new_database_name)
+                # client.model('db.database').backups_state(
+                #     new_database_name, backups_enable)
+                # restart the instance with default config
+                instance.update_conf_file()
+                instance.start_service()
+                # TODo agregar aca releer los modulos y demas en la nueva bd
+            except Exception, e:
+                raise Warning(
+                    _('Unable to duplicate Database. This is what we get:\n%s') % (e))
+        client.model('db.database').backups_state(
+            new_database_name, backups_enable)
         new_db.signal_workflow('sgn_to_active')
-        # TODO retornar accion de ventana a la bd creada
+
+        # devolvemos la accion de la nueva bd creada
+        action = self.env['ir.model.data'].xmlid_to_object(
+            'infrastructure.action_infrastructure_database_databases')
+        if not action:
+            return False
+        res = action.read()[0]
+        # res['domain'] = [('id', 'in', databases.ids)]
+        form_view_id = self.env['ir.model.data'].xmlid_to_res_id(
+            'infrastructure.view_infrastructure_database_form')
+        res['views'] = [(form_view_id, 'form')]
+        res['res_id'] = new_db.id
+        return res
+
+    # TODO ver si borramos esta Funcion vieja que usaba el kill de odoo tools
+    # @api.one
+    # def duplicate_db(self, new_database_name, backups_enable):
+    #     """Funcion que utiliza ws nativos de odoo para hacer duplicar bd"""
+    #     client = self.get_client()
+    #     sock = self.get_sock()
+    #     new_db = self.copy({
+    #         'name': new_database_name,
+    #         'backups_enable': backups_enable
+    #         })
+    #     self.kill_db_connection()
+    #     try:
+    #         sock.duplicate_database(
+    #             self.instance_id.admin_pass, self.name, new_database_name)
+    #         client.model('db.database').backups_state(
+    #             new_database_name, backups_enable)
+    #     except Exception, e:
+    #         raise Warning(
+    #             _('Unable to duplicate Database. This is what we get:\n%s') % (e))
+    #     new_db.signal_workflow('sgn_to_active')
+    #     # TODO retornar accion de ventana a la bd creada
 
     @api.multi
     def get_version(self):
@@ -537,6 +625,47 @@ class database(models.Model):
                     _("Unable to Connect to Database."),
                     _('Error: %s') % e
                 )
+
+# Backups management
+
+#     @api.one
+#     def update_backups_data(self):
+#         client = self.get_client()
+#         modules = ['database_tools']
+#         for module in modules:
+#             if client.modules(name=module, installed=True) is None:
+#                 raise Warning(
+#                     _("You can not Update Backups Data if module '%s' is not installed in the database") % (module))
+#         self_db_id = client.model('ir.model.data').xmlid_to_res_id(
+#             'database_tools.db_self_database')
+#         backups_data = client.read(
+#             'db.database.backup', [('database_id', '=', self_db_id)])
+#         imp_fields = [
+#             'id',
+#             'database_id/.id',
+#             'date',
+#             'name',
+#             'path',
+#             'type',
+#             ]
+#         rows = []
+#         for backup in backups_data:
+#             row = [
+#                 'db_%i_backup_%i' % (self.id, backup['id']),
+#                 self.id,
+#                 backup['date'],
+#                 backup['name'],
+#                 backup['path'],
+#                 backup['type'],
+#             ]
+#             rows.append(row)
+#         self.env['infrastructure.database.backup'].load(imp_fields, rows)
+# 
+#         # remove removed backups
+#         self_backups = [x.name for x in self.backup_ids]
+#         remote_backups = [x['name'] for x in backups_data]
+#         removed_backups = list(set(remote_backups) - set(self_backups))
+#         self.backup_ids.search([('name', 'in', removed_backups)]).unlink()
 
 # Modules management
     @api.one
@@ -598,7 +727,7 @@ class database(models.Model):
             self.smtp_server_id.smtp_port,
             self.smtp_server_id.smtp_user,
         ]]
-        fields = [
+        imp_fields = [
             'id',
             'name',
             'sequence',
@@ -612,7 +741,7 @@ class database(models.Model):
         client = self.get_client()
         try:
             mail_server_obj = client.model('ir.mail_server')
-            return mail_server_obj.load(fields, rows)
+            return mail_server_obj.load(imp_fields, rows)
 
         except Exception, e:
             raise except_orm(
@@ -620,27 +749,27 @@ class database(models.Model):
                 _('Error: %s') % e
             )
 
-    @api.one
-    def config_backups(self):
-        self.server_id.get_env()
-        client = self.get_client()
-        modules = ['database_tools']
-        for module in modules:
-            if client.modules(name=module, installed=True) is None:
-                raise Warning(
-                    _("You can not configure backups if module '%s' is not installed in the database") % (module))
-
-        # Configure backups
-        self_db_id = client.model('ir.model.data').xmlid_to_res_id(
-            'database_tools.db_self_database')
-        vals = {
-            'backups_path': os.path.join(
-                self.instance_id.environment_id.backups_path, self.name),
-            'daily_backup': self.daily_backup,
-            'weekly_backup': self.weekly_backup,
-            'monthly_backup': self.monthly_backup,
-        }
-        client.model('db.database').write([self_db_id], vals)
+#     @api.one
+#     def config_backups(self):
+#         self.server_id.get_env()
+#         client = self.get_client()
+#         modules = ['database_tools']
+#         for module in modules:
+#             if client.modules(name=module, installed=True) is None:
+#                 raise Warning(
+#                     _("You can not configure backups if module '%s' is not installed in the database") % (module))
+# 
+#         # Configure backups
+#         self_db_id = client.model('ir.model.data').xmlid_to_res_id(
+#             'database_tools.db_self_database')
+#         vals = {
+#             'backups_path': os.path.join(
+#                 self.instance_id.environment_id.backups_path, self.name),
+#             'daily_backup': self.daily_backup,
+#             'weekly_backup': self.weekly_backup,
+#             'monthly_backup': self.monthly_backup,
+#         }
+#         client.model('db.database').write([self_db_id], vals)
 
     @api.one
     def config_catchall(self):
@@ -681,6 +810,122 @@ class database(models.Model):
         sudo('postmap /etc/postfix/virtual_aliases')
         sudo('newaliases')
         sudo('/etc/init.d/postfix restart')
+
+    # TODO implementar cambio de usuario de postgres al duplicar una bd o de manera manual.
+    # Al parecer da error por el parametro que se alamcena database.uuid
+    # Para eso podemos ver todo el docigo que esta en db.py, sobre todo esta parte:
+    #     registry = openerp.modules.registry.RegistryManager.new(db)
+    #     with registry.cursor() as cr:
+    #         if copy:
+    # if it's a copy of a database, force generation of a new dbuuid
+    #             registry['ir.config_parameter'].init(cr, force=True)
+    #         if filestore_path:
+    #             filestore_dest = registry['ir.attachment']._filestore(cr, SUPERUSER_ID)
+    #             shutil.move(filestore_path, filestore_dest)
+
+    #         if openerp.tools.config['unaccent']:
+    #             try:
+    #                 with cr.savepoint():
+    #                     cr.execute("CREATE EXTENSION unaccent")
+    #             except psycopg2.Error:
+    #                 pass
+
+# DATABASE back ups
+    def _cron_db_backup(self, cr, uid, policy, context=None):
+        """"""
+        # Search for the backup policy having 'policy' as backup prefix
+        backup_policy_obj = self.pool['infrastructure.db_backup_policy']
+        backup_policy_id = backup_policy_obj.search(
+            cr, uid, [('backup_prefix', '=', policy)], context=context)[0]
+
+        # Search for databases using that backup policy
+        backup_policy = backup_policy_obj.browse(
+            cr, uid, backup_policy_id, context=None)
+        databases = backup_policy.database_ids
+
+        # Backup each database
+        for database in databases:
+            database.backup_now(backup_policy_id)
+
+    @api.one
+    def action_backup_now(self):
+        return self.backup_now()
+
+    @api.one
+    def backup_now(self, backup_policy_id=False):
+        """"""
+        self.server_id.get_env()
+        now = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        if not backup_policy_id:
+            policy_name = 'manual'
+        else:
+            backup_policy = self.env['infrastructure.db_backup_policy'].search(
+                [('id', '=', backup_policy_id)])
+            policy_name = backup_policy.backup_prefix
+
+        dump_name = '%s_%s_%s.sql' % (policy_name, self.name, now)
+
+        backups_path = self.instance_id.environment_id.backups_path
+
+        dump_file = path.join(backups_path, dump_name)
+
+        cmd = 'pg_dump %s --format=c --compress 9 --file=%s' % (
+            self.name,
+            dump_file
+        )
+
+        values = {
+            'database_id': self.id,
+            'name': dump_name,
+            'create_date': datetime.now(),
+            'db_backup_policy_id': backup_policy_id
+        }
+
+        try:
+            self.server_id.get_env()
+            user = self.instance_id.user
+
+            if not exists(backups_path, use_sudo=True):
+                sudo(
+                    'mkdir -m a=rwx -p ' + backups_path, user=user, group='odoo')
+
+            sudo(cmd, user='postgres')
+            self.backup_ids.create(values)
+            self.message_post(
+                subject=_('Backup Status'),
+                body=_('Completed Successfully'),
+                type='comment',
+                subtype='mt_backup_ok'
+            )
+
+        except Exception, e:
+            if policy_name == 'manual':
+                raise except_orm(
+                    _("Unable to backup '%s' database") % self.name, 
+                    _('Command %s output: %s') % (cmd, e)
+                )
+            else:
+                self.message_post(
+                    subject=_('Backup Status'),
+                    body=_('Backup Failed: %s' % e),
+                    type='notification',
+                    subtype='mt_backup_fail'
+                )
+
+        except SystemExit:
+            if policy_name == 'manual':
+                raise except_orm(
+                    _("Unable to backup '%s' database %s") % (self.name,cmd),
+                    _('Unknown System Error')
+                )
+            else:
+                self.message_post(
+                    subject=_('Backup Status'),
+                    body=_('Backup Failed: Unknown System Error'),
+                    type='notification',
+                    subtype='mt_backup_fail'
+                )
 
 # WORKFLOW
     def action_wfk_set_draft(self, cr, uid, ids, *args):

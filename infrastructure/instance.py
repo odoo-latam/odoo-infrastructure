@@ -3,13 +3,24 @@
 from openerp import netsvc
 from openerp import models, fields, api, _
 from openerp.exceptions import except_orm, Warning
-from fabric.api import sudo, shell_env
+from fabric.api import shell_env
+# from fabric.api import sudo, shell_env
+# utilizamos nuestro custom sudo que da un warning
+from .server import custom_sudo as sudo
 from fabric.contrib.files import exists, append, sed
 from ast import literal_eval
 import os
 import re
-from fabric.api import settings
 
+import traceback
+
+from fabric.api import settings, env
+import logging
+import fabtools
+_logger = logging.getLogger(__name__)
+
+
+# test commit hook 3
 
 class instance(models.Model):
 
@@ -67,6 +78,12 @@ class instance(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
+    
+    certificate = fields.Many2one(
+        'infrastructure.certificate',
+        string='Certificate',
+        domain=[('server_id','=',server_id)]
+    )
 
     db_filter = fields.Many2one(
         'infrastructure.db_filter',
@@ -80,7 +97,16 @@ class instance(models.Model):
         string='Limit Time Real',
         required=True,
         default=120,
-        help='Maximum allowed Real time per request. The default odoo value is 120 but we use 300 to avoid some workers timeout error',
+        help='Maximum allowed Real time per request. The default odoo value is 120 but sometimes we use 300 to avoid some workers timeout error',
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+
+    limit_time_cpu = fields.Integer(
+        string='Limit Time CPU',
+        required=True,
+        default=120,
+        help='Maximum allowed CPU time per request. The default odoo value is 60 but sometimes we use 120 to avoid some workers timeout error',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
@@ -289,6 +315,12 @@ class instance(models.Model):
         store=True,
         readonly=True
     )
+    
+    certificate = fields.Many2one(
+        'infrastructure.certificate',
+        string='Certificate',
+        domain=[('server_id','=',server_id)]
+    )
 
     _sql_constraints = [
         ('xml_rpc_port_uniq', 'unique(xml_rpc_port, server_id)',
@@ -299,6 +331,8 @@ class instance(models.Model):
             'Longpolling Port must be unique per server!'),
         ('logfile_uniq', 'unique(logfile, server_id)',
             'Log File Path must be unique per server!'),
+        #('user_uniq', 'unique(user, server_id)',
+        #    'User must be unique per server!'),
         ('data_dir_uniq', 'unique(data_dir, server_id)',
             'Data Dir must be unique per server!'),
         ('conf_file_path_uniq', 'unique(conf_file_path, server_id)',
@@ -368,6 +402,7 @@ class instance(models.Model):
         'environment_id.environment_repository_ids.addons_paths'
     )
     def _get_addons_path(self):
+        _logger.info("Getting Addons Path")
         addons_path = []
         try:
             for repository in self.environment_id.environment_repository_ids:
@@ -375,7 +410,7 @@ class instance(models.Model):
                     for addon_path in literal_eval(repository.addons_paths):
                         addons_path.append(addon_path)
         except:
-            print 'error al querer calcular el addons_path'
+            _logger.error("Error trying to get addons path")
         if not addons_path:
             addons_path = '[]'
         self.addons_path = addons_path
@@ -399,7 +434,7 @@ class instance(models.Model):
         self.service_file = user
 
     @api.one
-    @api.onchange('number', 'environment_id')
+    @api.onchange('name', 'number', 'environment_id')
     def _get_ports_and_ports(self):
         xml_rpc_port = False
         xml_rpcs_port = False
@@ -429,6 +464,7 @@ class instance(models.Model):
     # Actions
     @api.multi
     def delete(self):
+        _logger.info("Deleting Instance")
         if self.database_ids:
             raise Warning(_(
                 'You can not delete an instance that has databases'))
@@ -442,6 +478,7 @@ class instance(models.Model):
 
     @api.multi
     def create_instance(self):
+        _logger.info("Creating Instance")
         self.update_nginx_site()
         self.create_user()
         self.create_pg_user()
@@ -455,9 +492,15 @@ class instance(models.Model):
         self.signal_workflow('sgn_to_active')
 
     @api.one
-    def update_conf_file(self):
+    def update_conf_file(self, force_no_workers=False):
+        _logger.info("Updating conf file")
         self.environment_id.server_id.get_env()
-        self.stop_service()
+        try:
+            self.stop_service()
+            start_service = True
+        except:
+            start_service = False
+
         # TODO: chequear si el servicio esta levantado y bajarlo,
         # si estaba levantado volver a iniciarlo
         # self.stop_service()
@@ -487,10 +530,12 @@ class instance(models.Model):
 
         if addons_path:
             command += ' --addons-path=' + addons_path
-        command += ' --db-filter=' + self.db_filter.rule
+        # agregamos ' para que no de error con ciertos dominios
+        command += ' --db-filter=' + "'%s'" % self.db_filter.rule
         command += ' --xmlrpc-port=' + str(self.xml_rpc_port)
         command += ' --logfile=' + self.logfile
         command += ' --limit-time-real=' + str(self.limit_time_real)
+        command += ' --limit-time-cpu=' + str(self.limit_time_cpu)
         command += ' --db_maxconn=' + str(self.db_maxconn)
 
         if self.environment_id.environment_version_id.name in ('8.0', 'master'):
@@ -508,7 +553,9 @@ class instance(models.Model):
         if self.proxy_mode:
             command += ' --proxy-mode'
 
-        if self.workers:
+        if force_no_workers:
+            command += ' --workers=' + '0'
+        elif self.workers:
             command += ' --workers=' + str(self.workers)
 
         if self.type == 'secure':
@@ -522,33 +569,40 @@ class instance(models.Model):
         # TODO tal vez -r -w para database data
         try:
             sudo('chown ' + self.user + ':odoo -R ' + self.environment_id.path)
-            # TODO cambiar estos print por cosas en el log
-            print
-            print command
-            print
+            _logger.info("Running command: %s" % command)
             eggs_dir = '/home/%s/.python-eggs' % self.user
             if not exists(eggs_dir, use_sudo=True):
                 sudo('mkdir %s' % eggs_dir, user=self.user)
             with shell_env(PYTHON_EGG_CACHE=eggs_dir):
                 sudo('chmod g+rw -R ' + self.environment_id.path)
                 sudo(command, user=self.user)
+
         except Exception, e:
             raise Warning(_("Can not create/update configuration file, this is what we get: \n %s") % (
                 e))
+        # TODO cambiar esto por el webservice que permite cambiar el admin pass
+
         sed(self.conf_file_path, '(admin_passwd).*', 'admin_passwd = ' + self.admin_pass, use_sudo=True)
+        if start_service:
+            self.start_service()
 
     @api.multi
     def delete_service_file(self):
+        _logger.info("Deleting service file")
         service_path = self.environment_id.server_id.service_path
         service_file_path = os.path.join(service_path, self.service_file)
         try:
             sudo('rm ' + service_file_path)
         except Exception, e:
-            raise Warning(_("Can not delete service file %s, this is what we get: \n %s") % (
-                service_file_path, e))
+            _logger.warning(("Could delete service file '%s', this is what we get: \n %s") % (
+                self.service_file, e))
 
     @api.multi
     def update_service_file(self):
+
+        self.environment_id.server_id.get_env()
+        _logger.info("Updating service file")
+
         # Build file
         daemon = os.path.join(
             self.environment_id.path, 'bin', self.run_server_command)
@@ -573,6 +627,7 @@ class instance(models.Model):
 
     @api.one
     def create_user(self):
+        _logger.info("Creating unix user")
         self.environment_id.server_id.get_env()
         try:
             sudo('adduser --system --ingroup odoo ' + self.user)
@@ -582,55 +637,64 @@ class instance(models.Model):
 
     @api.one
     def delete_user(self):
+        _logger.info("Deleting unix user")
         self.environment_id.server_id.get_env()
         try:
             sudo('deluser %s' % self.user)
         except Exception, e:
-            raise Warning(_("Can not delete linux user %s, this is what we get: \n %s") % (
+            _logger.warning(("Can not delete linux user %s, this is what we get: \n %s") % (
                 self.user, e))
 
     @api.one
     def create_pg_user(self):
-        # TODO ver como hacer en los distintos lugares para que si fabric da un error lo almacenen en algun lugar, de hecho lo ideal seria ir guardando en una variable publica todo el log y guardarlo despues de ejecutar todo
-        self.environment_id.server_id.get_env()
-        result = sudo('sudo -u postgres createuser -d -R -S ' + self.user)
-        try:
-            if not result.succeeded:
-                print 'result1', result
-            else:
-                print 'result2', result
-        except Exception, e:
-            raise Warning(_("Can not create postgres user %s, this is what we get: \n %s") % (
-                self.user, e))
+        if not fabtools.postgres.user_exists(self.user):
+            _logger.info("Creating pg User")
+            self.environment_id.server_id.get_env()
+            try:
+                sudo('sudo -u postgres createuser -d -R -S ' + self.user)
+            except Exception, e:
+                raise Warning(_("Can not create postgres user %s, this is what we get: \n %s") % (
+                    self.user, e))
 
     @api.one
     def delete_pg_user(self):
-        self.environment_id.server_id.get_env()
-        try:
-            sudo('dropuser %s' % self.user)
-        except Exception, e:
-            raise Warning(_("Can not delete postgres user %s, this is what we get: \n %s") % (
-                self.user, e))
+        if fabtools.postgres.user_exists(self.user):
+            _logger.info("Deleting pg User")
+            self.environment_id.server_id.get_env()
+            try:
+                sudo('sudo -u postgres dropuser %s' % self.user)
+            except Exception, e:
+                raise Warning(_("Can not delete postgres user %s, this is what we get: \n %s") % (
+                    self.user, e))
 
     @api.one
     def start_service(self):
+        _logger.info("Starting Service")
         self.environment_id.server_id.get_env()
-        sudo('service ' + self.service_file + ' start')
+        self.stop_service()
+        # TODO no anda este verificador de fabric seguramente porque el servicio esta mal, habria que mejroarlo robando lo nuevo de odoo
+        # if not fabtools.service.is_running(self.service_file):
+        env.warn_only = True
+        fabtools.service.start(self.service_file)
+        env.warn_only = False
+        # service.started(self.service_file)
+        # sudo('service ' + self.service_file + ' start')
 
     @api.one
     def stop_service(self):
+        _logger.info("Stopping Service")
         self.environment_id.server_id.get_env()
-        result = sudo('service ' + self.service_file + ' stop')
-        if result.succeeded:
-            print 'result1', result
-        else:
-            print 'result2', result
-        # except Exception, e:
-        #     raise Warning(_("Could not stop service '%s', this is what we get: \n %s") % (
-        #         self.service_file, e))
+        # if fabtools.service.is_running(self.service_file):
+        env.warn_only = True
+        fabtools.service.stop(self.service_file)
+        env.warn_only = False
+        # sudo('service ' + self.service_file + ' stop')
+        # TODO probar bajar con fabtools pero me daba error
+        # service.stopped(self.service_file)
 
     @api.one
     def restart_service(self):
+        _logger.info("Restarting Service")
         self.environment_id.server_id.get_env()
         try:
             sudo('service ' + self.service_file + ' restart')
@@ -640,23 +704,28 @@ class instance(models.Model):
 
     @api.one
     def run_on_start(self):
+        _logger.info("Adding run on start")
         self.environment_id.server_id.get_env()
         try:
             sudo('update-rc.d  ' + self.service_file + ' defaults')
         except Exception, e:
             raise Warning(_("Could not add service '%s' to run on start, this is what we get: \n %s") % (
                 self.service_file, e))
+
     @api.one
     def stop_run_on_start(self):
+        _logger.info("Stopping run on start")
         self.environment_id.server_id.get_env()
         try:
             sudo('update-rc.d  -f ' + self.service_file + ' remove')
+        # we dont raise and exception, jus print on logg
         except Exception, e:
-            raise Warning(_("Could not stop service '%s' to run on start, this is what we get: \n %s") % (
+            _logger.warning(("Could not stop service '%s' to run on start, this is what we get: \n %s") % (
                 self.service_file, e))
 
     @api.one
     def delete_nginx_site(self):
+        _logger.info("Deleting conf file")
         self.environment_id.server_id.get_env()
         nginx_sites_path = self.environment_id.server_id.nginx_sites_path
         nginx_site_file_path = os.path.join(
@@ -666,24 +735,23 @@ class instance(models.Model):
         try:
             sudo('rm -f %s' % nginx_site_file_path)
         except Exception, e:
-            raise Warning(_("Could remove nginx site file '%s', this is what we get: \n %s") % (
-                nginx_site_file_path, e))
+            _logger.warning(("Could remove nginx site file '%s', this is what we get: \n %s") % (
+                self.service_file, e))
 
     @api.one
     def update_nginx_site(self):
+        _logger.info("Updating nginx site")
         self.environment_id.server_id.get_env()
+        
+        ssl_section = ''
         if self.type == 'none_secure':
             listen_port = 80
         else:
-            raise Warning(_('Secure instances not implemented yet!'))
-
+            listen_port = 443
+             
         server_names = ''
-        for host in self.instance_host_ids:
-            server_names += host.name + ' '
-
-        if server_names == '':
-            raise Warning(_('You Must set at least one instance host!'))
-
+        nginx_site_file = ''
+        
         acces_log = os.path.join(
             self.environment_id.server_id.nginx_log_path,
             'access_' + re.sub('[-]', '_', self.service_file))
@@ -693,18 +761,51 @@ class instance(models.Model):
         xmlrpc_port = self.xml_rpc_port
 
         nginx_long_polling = ''
+        
+        
+        
 
         if self.longpolling_port:
             nginx_long_polling = nginx_long_polling_template % (
                 self.longpolling_port)
+        
+        for host in self.instance_host_ids:
+            if host.database_id:
+                if host.certificate_id:
+                    ssl_section = nginx_ssl_section_template % (host.certificate_id.pemfile, host.certificate_id.keyfile)
+                else:
+                    ssl_section = ''
+                    
+                nginx_site_file += nginx_site_dbfilter_template % (
+                    listen_port, 
+                    ssl_section,
+                    host.name, 
+                    acces_log + '_' + host.database_id.name,
+                    error_log + '_' + host.database_id.name,
+                    xmlrpc_port,
+                    host.database_id.name,
+                    nginx_long_polling)
 
-        nginx_site_file = nginx_site_template % (
-            listen_port, server_names,
-            acces_log,
-            error_log,
-            xmlrpc_port,
-            nginx_long_polling
-        )
+            else:
+                server_names += host.name + ' '
+
+        if server_names == '' and nginx_site_file == '':
+            raise Warning(_('You Must set at least one instance host!'))
+
+        if server_names > '':
+            if self.certificate_id:
+                ssl_section = ssl_section_template % (self.certificate_id.pemfile, self.certificate_id.keyfile)
+            else:
+                ssl_section = ''
+            nginx_site_file += nginx_site_template % (
+                listen_port, 
+                ssl_section,
+                server_names,
+                acces_log,
+                error_log,
+                xmlrpc_port,
+                nginx_long_polling
+            )
 
         # Check nginx sites-enabled directory exists
         nginx_sites_path = self.environment_id.server_id.nginx_sites_path
@@ -727,7 +828,7 @@ class instance(models.Model):
         sudo('chmod 777 ' + nginx_site_file_path)
 
         # Restart nginx
-        self.environment_id.server_id.restart_nginx()
+        self.environment_id.server_id.reload_nginx()
 
     @api.multi
     def action_view_databases(self):
@@ -754,6 +855,12 @@ class instance(models.Model):
         return res
 
 # TODO llevar esto a un archivo y leerlo de alli
+
+nginx_ssl_section_template = """
+    ssl    on;
+    ssl_certificate    %s;
+    ssl_certificate_key   %s;
+"""
 nginx_long_polling_template = """
     location /longpolling {
         proxy_pass   http://127.0.0.1:%i;
@@ -762,6 +869,7 @@ nginx_long_polling_template = """
 nginx_site_template = """
 server {
         listen %i;
+        %s
         server_name %s;
         access_log %s;
         error_log %s;
@@ -769,6 +877,26 @@ server {
         location / {
                 proxy_pass              http://127.0.0.1:%i;
                 proxy_set_header        X-Forwarded-Host $host;
+        }
+
+    %s
+
+}
+"""
+
+nginx_site_dbfilter_template = """
+server {
+        listen %i;
+        %S
+        server_name %s;
+        access_log %s;
+        error_log %s;
+
+        location / {
+                proxy_pass              http://127.0.0.1:%i;
+                proxy_set_header        X-Forwarded-Host $host;
+                proxy_set_header        X-OpenERP-dbfilter "%s";
+                
         }
 
     %s

@@ -77,20 +77,20 @@
                 <group>
                     <group>
                         <field name="number" placeholder="(2 digits, >= 10)"/>
+                        <field name="partner_id"/>
                         <field name="type"/>
                         <field name="environment_version_id"/>
-                        <field name="install_server_command"/>
                     </group>
                     <group>
+                        <field name="install_server_command"/>
                         <field name="path"/>
                         <field name="sources_path"/>
                         <field name="backups_path"/>
-                        <field name="partner_id"/>
                     </group>
                 </group>
                 <notebook>
                     <page string="Configuration">
-                        <field name="environment_repository_ids"/>
+                        <field name="environment_repository_ids" context="{'default_server_id': server_id}"/>
                     </page>
                     <page string="Notes">
                         <field name="note"/>

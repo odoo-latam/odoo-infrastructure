@@ -2,12 +2,33 @@
 from openerp import netsvc
 from openerp import models, fields, api, _
 from openerp.exceptions import except_orm, Warning
-from fabric.api import env, sudo, reboot
+from fabric.api import env, reboot
+# from fabric.api import env, sudo, reboot
+# utilizamos nuestro custom sudo que da un warning
+# import custom_sudo as sudo
 from fabric.contrib.files import append
 # For postfix
 from fabric.api import *
 from fabtools.deb import is_installed, preseed_package, install
 from fabtools.require.service import started
+import logging
+_logger = logging.getLogger(__name__)
+
+
+# TODO deberiamos cambiar esto por los metodos propios de fabtools para
+# gestionar errores asi tmb, por ejemplo, lo toma fabtools y otros comandos
+def custom_sudo(command, user=False):
+    env.warn_only = True
+    if user:
+        res = sudo(command, user=user)
+    else:
+        res = sudo(command)
+    env.warn_only = False
+    if res.failed:
+        raise Warning(_(
+            "Can not run command:\n%s\nThis is what we get:\n%s") % (
+            res.real_command, res.stdout))
+    return res
 
 
 class server(models.Model):
@@ -186,7 +207,6 @@ class server(models.Model):
         string='Postgres Superuser',
         help="Postgres Superuser. You can record and existing one or create a new one with an installation command",
         readonly=True,
-        required=True,
         states={'draft': [('readonly', False)]},
         default='odoo',
     )
@@ -195,7 +215,6 @@ class server(models.Model):
         string='Postgres Superuser Pwd',
         help="Postgres Superuser Password. You can record and existing one or create a new one with an installation command",
         readonly=True,
-        required=True,
         states={'draft': [('readonly', False)]},
     )
 
@@ -252,6 +271,13 @@ class server(models.Model):
         'server_id',
         string='Changes',
     )
+    
+    certificate_ids = fields.One2many(
+        'infrastructure.certificate',
+        'server_id',
+        string='SSL Certificates',
+    )
+
 
     environment_ids = fields.One2many(
         'infrastructure.environment',
@@ -315,7 +341,6 @@ class server(models.Model):
     postfix_hostname = fields.Char(
         string='Postfix Hostname',
         readonly=True,
-        required=True,
         states={'draft': [('readonly', False)]},
     )
 
@@ -359,7 +384,8 @@ class server(models.Model):
         if not self.password:
             raise Warning(_('Not Password Defined for the server'))
         env.user = self.user_name
-        env.warn_only = True
+        # env.warn_only = True
+        # env.warn_only = False
         env.password = self.password
         env.host_string = self.main_hostname
         env.port = self.ssh_port
@@ -388,7 +414,7 @@ class server(models.Model):
     def restart_postgres(self):
         self.get_env()
         try:
-            sudo('service postgres restart')
+            custom_sudo('service postgres restart')
         except:
             raise except_orm(
                 _('Could Not Restart Service!'),
@@ -396,12 +422,24 @@ class server(models.Model):
 
     @api.multi
     def restart_nginx(self):
+        _logger.info("Restarting nginx")
         self.get_env()
         try:
-            sudo('service nginx restart')
+            custom_sudo('service nginx restart')
         except:
             raise except_orm(
                 _('Could Not Restart Service!'),
+                _("Check if service is installed!"))
+
+    @api.multi
+    def reload_nginx(self):
+        _logger.info("Reloading nginx")
+        self.get_env()
+        try:
+            custom_sudo('nginx -s reload')
+        except:
+            raise except_orm(
+                _('Could Not Reload Service!'),
                 _("Check if service is installed!"))
 
     def action_wfk_set_draft(self, cr, uid, ids, *args):

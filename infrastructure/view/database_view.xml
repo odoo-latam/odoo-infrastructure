@@ -64,7 +64,6 @@
                 <div class="col-md-6">
                     <h2>
                         <field name="server_id" class="oe_inline"/> / <field name="environment_id" class="oe_inline"/> / <field name="instance_id" class="oe_inline"/>
-                        <field name="partner_id" placeholder="Partner..."/>
                     </h2>
                     <field name="database_type_id" class="oe_edit_only" default_focus="1" placeholder="Type..."/>
                     <h1>
@@ -82,9 +81,11 @@
                     <button icon="fa-download" type="object" string="Dump" class="oe_inline oe_stat_button" name="dump_db" states="active"/>
                     <button icon="fa-copy" type="action" string="Duplicate" class="oe_stat_button" name="%(action_infrastructure_duplicate_db_wizard)d" states="active"/>
                     <button icon="fa-trash-o" type="object" string="Drop" class="oe_stat_button" name="drop_db" states="active"/>
+                    <button icon="fa-pencil" type="action" string="Rename" class="oe_stat_button" name="%(action_infrastructure_rename_database_wizard)d" states="active"/>
                 </div>
                  <group>
                     <group>
+                        <field name="partner_id"/>
                         <field name="issue_date"/>
                         <field name="deactivation_date"/>
                         <field name="demo_data"/>
@@ -99,35 +100,30 @@
                                     type="object"
                                     class="oe_link oe_read_only"/>
                             </div>
-                        <label for="backups_enable"/>
-                        <div class="oe_inline">
-                            <field name="backups_enable"/><button class="oe_read_only oe_link" type="object" name="config_backups" states="active" string="Config Backups"/>
-                        </div>
-                        <label string=""/>
-                        <div class="oe_link" attrs="{'invisible':[('backups_enable','=',False)]}">
-                            <field name="daily_backup" /><label for="daily_backup" string="Daily"/> - <field name="weekly_backup"/><label for="daily_backup" string="Weekcly"/> - <field name="monthly_backup"/><label for="monthly_backup" string="Monthly"/>
-                        </div>
+                        
                     </group>
                     <group>
+<field name="db_backup_policy_ids" widget="many2many_tags"/>
                         <label for="smtp_server_id"/>
                         <div class="oe_inline">
                             <field name="smtp_server_id" class="oe_inline"/>
-                            <button class="oe_link oe_inline oe_read_only" type="object" name="upload_mail_server_config" attrs="{'invisible':[('smtp_server_id','=',False)]}" string="Upload Config"/>
+                            <button class="oe_link oe_inline oe_read_only" type="object" name="upload_mail_server_config" attrs="{'invisible':['|',('state','!=','active'),('smtp_server_id','=',False)]}" string="Upload Config"/>
                         </div>
-                        <field name="alias_hostname_id" domain="[('server_id','=',server_id)]"/>
-                        <field name="alias_prefix" attrs="{'invisible':[('alias_hostname_wildcard','=',False)]}"/>
-                        <field name="alias_hostname_wildcard" invisible="1"/>
-                        <label for="domain_alias"/>
+                        <label for="catchall_enable"/>
                         <div class="oe_inline">
-                            <field name="domain_alias" class="oe_inline"/>
-                            <button class="oe_link oe_inline oe_read_only" type="object" name="config_catchall" attrs="{'invisible':[('domain_alias','=',False)]}" string="Config Catchall"/>
+                            <field name="catchall_enable"/><button class="oe_link oe_read_only" type="object" name="config_catchall" attrs="{'invisible':['|',('state','!=','active'),('catchall_enable','=',False)]}" string="Config Catchall"/>
                         </div>
+                        <field name="alias_hostname_id" attrs="{'invisible':[('catchall_enable','=',False)],'required':[('catchall_enable','=',True)]}" domain="[('server_id','=',server_id)]"/>
+                        <field name="alias_prefix" attrs="{'invisible':['|',('catchall_enable','=',False),('alias_hostname_wildcard','=',False)],'required':[('alias_hostname_wildcard','=',True),('catchall_enable','=',True)]}"/>
+                        <field name="domain_alias" attrs="{'invisible':[('catchall_enable','=',False)]}"/>
+                        <field name="alias_hostname_wildcard" attrs="{'invisible':[('catchall_enable','=',False)]}" invisible="1"/>
                     </group>
                  </group>
                 <notebook>
-<!--                     <page string="Backups" name="backup_ids">
+                    <page string="Backups" name="backup_ids">
+                        <button type="object" name="update_backups_data" string="Update Backups Data"/>
                         <field name="backup_ids"/>
-                    </page> -->
+                    </page>
                     <page string="Base Modules" name="base_module_ids">
                         <button type="object" name="action_update_modules_data" string="Update Modules Data"/>
                         <button type="object" name="install_base_modules" string="Install Modules"/>
