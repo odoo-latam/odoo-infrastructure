@@ -96,6 +96,8 @@
                     </group>
                     <group>
                         <field name="type"/>
+                        <field name="certificate_id"
+                			domain="[('server_id','=',server_id)]"/>
                         <field name="run_on_sys_boot"/>
                         <field name="xml_rpc_port"/>
                         <field name="xml_rpcs_port" attrs="{'invisible':[('type','!=','secure')]}"/>

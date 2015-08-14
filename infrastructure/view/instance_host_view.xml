@@ -40,7 +40,10 @@
                     invisible="True"
                     />
                 <field name="name"/>
-                <field name="database_id"/>
+                <field name="database_id"
+                	domain="[('server_id','=',parent.server_id)]"/>
+                <field name="certificate_id"
+                	domain="[('server_id','=',parent.server_id)]"/>
              </group>
             </sheet>
         </form>
