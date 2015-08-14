@@ -57,7 +57,13 @@ class instance_host(models.Model):
     database_id = fields.Many2one(
         'infrastructure.database',
         string='Database',
-        #domain=[('instance_id','=',instance_id)]
+        domain=[('instance_id','=',instance_id)]
+    )
+    
+    certificate_id = fields.Many2one(
+        'infrastructure.certificate',
+        string='Database',
+        domain=[('server_id','=',server_id)]
     )
     
     _sql_constraints = [

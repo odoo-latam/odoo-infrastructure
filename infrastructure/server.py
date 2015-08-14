@@ -271,6 +271,13 @@ class server(models.Model):
         'server_id',
         string='Changes',
     )
+    
+    certificate_ids = fields.One2many(
+        'infrastructure.certificate',
+        'server_id',
+        string='SSL Certificates',
+    )
+
 
     environment_ids = fields.One2many(
         'infrastructure.environment',

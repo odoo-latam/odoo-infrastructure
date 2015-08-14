@@ -730,11 +730,13 @@ class instance(models.Model):
     def update_nginx_site(self):
         _logger.info("Updating nginx site")
         self.environment_id.server_id.get_env()
+        
+        ssl_section = ''
         if self.type == 'none_secure':
-            listen_port = 80
-        else:
-            raise Warning(_('Secure instances not implemented yet!'))
-
+             listen_port = 80
+         else:
+             listen_port = 443
+             
         server_names = ''
         nginx_site_file = ''
         
@@ -747,6 +749,9 @@ class instance(models.Model):
         xmlrpc_port = self.xml_rpc_port
 
         nginx_long_polling = ''
+        
+        
+        
 
         if self.longpolling_port:
             nginx_long_polling = nginx_long_polling_template % (
@@ -754,8 +759,14 @@ class instance(models.Model):
         
         for host in self.instance_host_ids:
             if host.database_id:
+                if host.certificate_id:
+                    ssl_section = nginx_ssl_section_template % (host.certificate_id.pemfile, host.certificate_id.keyfile)
+                else:
+                    ssl_section = ''
+                    
                 nginx_site_file += nginx_site_dbfilter_template % (
                     listen_port, 
+                    ssl_section,
                     host.name, 
                     acces_log + '_' + host.database_id.name,
                     error_log + '_' + host.database_id.name,
@@ -770,8 +781,14 @@ class instance(models.Model):
             raise Warning(_('You Must set at least one instance host!'))
 
         if server_names > '':
+            if self.certificate_id:
+                ssl_section = ssl_section_template % (self.certificate_id.pemfile, self.certificate_id.keyfile)
+            else:
+                ssl_section = ''
             nginx_site_file += nginx_site_template % (
-                listen_port, server_names,
+                listen_port, 
+                ssl_section,
+                server_names,
                 acces_log,
                 error_log,
                 xmlrpc_port,
@@ -826,6 +843,12 @@ class instance(models.Model):
         return res
 
 # TODO llevar esto a un archivo y leerlo de alli
+
+nginx_ssl_section_template = """
+    ssl    on;
+    ssl_certificate    %s;
+    ssl_certificate_key   %s;
+"""
 nginx_long_polling_template = """
     location /longpolling {
         proxy_pass   http://127.0.0.1:%i;
@@ -834,6 +857,7 @@ nginx_long_polling_template = """
 nginx_site_template = """
 server {
         listen %i;
+        %s
         server_name %s;
         access_log %s;
         error_log %s;
@@ -851,6 +875,7 @@ server {
 nginx_site_dbfilter_template = """
 server {
         listen %i;
+        %S
         server_name %s;
         access_log %s;
         error_log %s;
