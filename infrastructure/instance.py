@@ -733,9 +733,9 @@ class instance(models.Model):
         
         ssl_section = ''
         if self.type == 'none_secure':
-             listen_port = 80
-         else:
-             listen_port = 443
+            listen_port = 80
+        else:
+            listen_port = 443
              
         server_names = ''
         nginx_site_file = ''
