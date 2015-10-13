@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/ingadhoc/odoo-infrastructure.svg?branch=8.0)](https://travis-ci.org/ingadhoc/odoo-infrastructure)
-[![Coverage Status](https://coveralls.io/repos/ingadhoc/odoo-infrastructure/badge.png?branch=8.0)](https://coveralls.io/r/ingadhoc/odoo-infrastructure?branch=8.0)
+[![Build Status](https://travis-ci.org/ingadhoc/odoo-infrastructure.svg?branch=9.0)](https://travis-ci.org/ingadhoc/odoo-infrastructure)
+[![Coverage Status](https://coveralls.io/repos/ingadhoc/odoo-infrastructure/badge.png?branch=9.0)](https://coveralls.io/r/ingadhoc/odoo-infrastructure?branch=9.0)
 
 # odoo infrastructure
 
