@@ -35,7 +35,8 @@ Destiny database must have web_support_client module installed
     'license': 'AGPL-3',
     'depends': [
         'infrastructure',
-        'account_analytic_analysis',
+        'account',
+        # 'account_analytic_analysis',
     ],
     'sequence': 14,
     'summary': '',
