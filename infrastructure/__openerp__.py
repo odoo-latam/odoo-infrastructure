@@ -20,7 +20,7 @@
 ##############################################################################
 {
     'name': 'Infrastructure',
-    'version': '8.0.0.14.0',
+    'version': '9.0.1.0.0',
     'description': 'Infrastructure Management',
     'category': 'base.module_category_knowledge_management',
     'author': 'ADHOC SA',
